@@ -1,4 +1,4 @@
--- Miles Tracker Database Schema
+-- Miles Ahead Database Schema
 -- Run these commands in your Supabase SQL editor
 
 -- Create odometer_logs table

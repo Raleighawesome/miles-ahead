@@ -1,7 +1,7 @@
 {
-  "name": "miles",
+  "name": "miles-ahead",
   "version": "1.0.0",
-  "description": "",
+  "description": "Stay miles ahead of your lease allowance with smart vehicle mileage tracking",
   "main": "index.js",
   "scripts": {
     "dev": "next dev",

@@ -1,5 +1,5 @@
 #!/bin/bash
-echo "🚀 Miles Tracker Environment Setup"
+echo "🚀 Miles Ahead Environment Setup"
 echo "=================================="
 echo ""
 

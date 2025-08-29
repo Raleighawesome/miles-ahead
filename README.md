@@ -1,6 +1,6 @@
-# Miles Tracker
+# Miles Ahead 🚗💨
 
-A comprehensive vehicle mileage tracking application for lease management. Track odometer readings, manage allowances, forecast usage, and avoid overage charges.
+Stay miles ahead of your lease allowance with smart vehicle mileage tracking. A comprehensive application for lease management that helps you track odometer readings, manage allowances, forecast usage, and avoid costly overage charges.
 
 ## Features
 

@@ -5,8 +5,8 @@ import "./globals.css";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "Miles Tracker",
-  description: "Track vehicle mileage and lease allowances",
+  title: "Miles Ahead",
+  description: "Stay miles ahead of your lease allowance with smart vehicle mileage tracking",
 };
 
 export default function RootLayout({
