@@ -24,28 +24,34 @@
     --input: 214.3 31.8% 91.4%;
     --ring: 222.2 84% 4.9%;
     --radius: 0.5rem;
+    /* Accent hues for glow theme (blue/orange) */
+    --glow-blue: 217 91% 60%; /* around tailwind blue-500 */
+    --glow-blue-soft: 217 91% 60% / 0.25;
+    --glow-orange: 24 95% 53%; /* around orange-500 */
+    --glow-orange-soft: 24 95% 53% / 0.25;
   }
  
   .dark {
-    --background: 222.2 84% 4.9%;
-    --foreground: 210 40% 98%;
-    --card: 222.2 84% 4.9%;
-    --card-foreground: 210 40% 98%;
-    --popover: 222.2 84% 4.9%;
-    --popover-foreground: 210 40% 98%;
-    --primary: 210 40% 98%;
-    --primary-foreground: 222.2 84% 4.9%;
-    --secondary: 217.2 32.6% 17.5%;
-    --secondary-foreground: 210 40% 98%;
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
-    --accent: 217.2 32.6% 17.5%;
-    --accent-foreground: 210 40% 98%;
+    /* Dark palette tuned for subtle blue/orange glow */
+    --background: 222 50% 5%;
+    --foreground: 210 40% 96%;
+    --card: 222 50% 6.5%;
+    --card-foreground: 210 40% 96%;
+    --popover: 222 50% 6.5%;
+    --popover-foreground: 210 40% 96%;
+    --primary: 217 91% 60%; /* blue as primary accents */
+    --primary-foreground: 222 50% 6%;
+    --secondary: 222 35% 12%;
+    --secondary-foreground: 210 40% 96%;
+    --muted: 222 35% 12%;
+    --muted-foreground: 215 16% 72%;
+    --accent: 24 95% 53%; /* orange as secondary accent */
+    --accent-foreground: 222 50% 6%;
     --destructive: 0 62.8% 30.6%;
     --destructive-foreground: 210 40% 98%;
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
-    --ring: 212.7 26.8% 83.9%;
+    --border: 223 28% 18%;
+    --input: 223 28% 18%;
+    --ring: 217 91% 60%;
   }
 }
 
@@ -54,6 +60,40 @@
     @apply border-border;
   }
   body {
+    /* Subtle radial gradient and background grid for depth */
     @apply bg-background text-foreground;
+    background-image:
+      radial-gradient(1200px 600px at 0% -10%, hsl(var(--glow-blue-soft)) 0%, transparent 60%),
+      radial-gradient(800px 400px at 100% 110%, hsl(var(--glow-orange-soft)) 0%, transparent 65%),
+      linear-gradient(to bottom, transparent, transparent 100%);
+    background-size: cover;
+    background-repeat: no-repeat;
+  }
+}
+
+/* Utility classes for glow effects and glass cards */
+@layer utilities {
+  .glow-blue {
+    box-shadow: 0 0 0 0 rgba(0,0,0,0);
+  }
+  .glow-blue:hover {
+    box-shadow:
+      0 0 12px hsl(var(--glow-blue-soft)),
+      0 0 24px hsl(var(--glow-blue-soft));
+  }
+  .glow-orange:hover {
+    box-shadow:
+      0 0 12px hsl(var(--glow-orange-soft)),
+      0 0 24px hsl(var(--glow-orange-soft));
+  }
+  .glass-card {
+    background: linear-gradient(
+      180deg,
+      hsl(var(--card) / 0.7),
+      hsl(var(--card) / 0.5)
+    );
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    border-color: hsl(var(--border));
   }
 }

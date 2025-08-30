@@ -11,6 +11,7 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 import { format, parseISO, differenceInDays, startOfDay, subDays } from 'date-fns';
 import { Progress } from './ui/progress';
 import { env } from '../lib/env';
+import ThemeToggle from './ThemeToggle';
 
 // Types
 interface OdometerReading {
@@ -306,9 +307,18 @@ export default function MilesTracker() {
   return (
     <div className="container mx-auto p-6 space-y-6">
       {/* Header */}
-      <div className="text-center mb-8">
-        <h1 className="text-3xl font-bold">Miles Ahead 🚗💎</h1>
-        <p className="text-gray-600 mt-2">Stay miles ahead of your lease allowance with smart vehicle mileage tracking</p>
+      <div className="mb-8">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-400 via-blue-300 to-orange-300">
+              Miles Ahead 🚗💎
+            </h1>
+            <p className="text-muted-foreground mt-2">
+              Stay miles ahead of your lease allowance with smart vehicle mileage tracking
+            </p>
+          </div>
+          <ThemeToggle />
+        </div>
       </div>
 
       {/* 1. Mileage Progress */}
@@ -395,25 +405,27 @@ export default function MilesTracker() {
                 <div className="h-80">
                   <ResponsiveContainer width="100%" height="100%">
                     <LineChart data={chartData}>
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="date" />
-                      <YAxis />
+                      <CartesianGrid strokeDasharray="3 3" stroke="#1f2937" />
+                      <XAxis dataKey="date" stroke="#94a3b8" tick={{ fill: '#94a3b8' }} />
+                      <YAxis stroke="#94a3b8" tick={{ fill: '#94a3b8' }} />
                       <Tooltip 
                         formatter={(value: number) => [value.toLocaleString() + ' miles', '']}
                       />
                       <Line 
                         type="monotone" 
                         dataKey="miles" 
-                        stroke="#2563eb" 
+                        stroke="#60a5fa" 
                         strokeWidth={2}
+                        dot={false}
                         name="Actual Miles"
                       />
                       <Line 
                         type="monotone" 
                         dataKey="allowance" 
-                        stroke="#dc2626" 
+                        stroke="#fb923c" 
                         strokeWidth={2}
                         strokeDasharray="5 5"
+                        dot={false}
                         name="Allowance"
                       />
                     </LineChart>
