@@ -311,48 +311,7 @@ export default function MilesTracker() {
         <p className="text-gray-600 mt-2">Stay miles ahead of your lease allowance with smart vehicle mileage tracking</p>
       </div>
 
-      {/* Stats Overview */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Current Odometer</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.currentMiles.toLocaleString()}</div>
-          </CardContent>
-        </Card>
-        
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Total Miles Driven</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.totalMiles.toLocaleString()}</div>
-          </CardContent>
-        </Card>
-        
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Allowance to Date</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{Math.round(stats.allowanceToDate).toLocaleString()}</div>
-          </CardContent>
-        </Card>
-        
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Over/Under Allowance</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className={`text-2xl font-bold ${stats.overUnder > 0 ? 'text-red-600' : 'text-green-600'}`}>
-              {stats.overUnder > 0 ? '+' : ''}{Math.round(stats.overUnder).toLocaleString()}
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Progress Bar */}
+      {/* 1. Mileage Progress */}
       {readings.length > 0 && (
         <Card>
           <CardHeader>
@@ -416,7 +375,7 @@ export default function MilesTracker() {
         </Card>
       )}
 
-      {/* Main Content Tabs */}
+      {/* 2. Mileage Tracking Chart with Tabs */}
       <Tabs defaultValue="dashboard" className="space-y-4">
         <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="dashboard">Dashboard</TabsTrigger>
@@ -465,34 +424,6 @@ export default function MilesTracker() {
                   No mileage data available. Add your first odometer reading to get started!
                 </div>
               )}
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>Lease Information</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-2">
-              <div className="flex justify-between">
-                <span>Lease Start:</span>
-                <span>{format(vehicleConfig.leaseStartDate, 'MMM dd, yyyy')}</span>
-              </div>
-              <div className="flex justify-between">
-                <span>Lease End:</span>
-                <span>{format(vehicleConfig.leaseEndDate, 'MMM dd, yyyy')}</span>
-              </div>
-              <div className="flex justify-between">
-                <span>Annual Allowance:</span>
-                <span>{vehicleConfig.annualAllowance.toLocaleString()} miles</span>
-              </div>
-              <div className="flex justify-between">
-                <span>Daily Allowance:</span>
-                <span>{Math.round(stats.dailyAllowance)} miles</span>
-              </div>
-              <div className="flex justify-between">
-                <span>Days into Lease:</span>
-                <span>{Math.max(0, stats.daysIntoLease)} days</span>
-              </div>
             </CardContent>
           </Card>
         </TabsContent>
@@ -718,6 +649,76 @@ export default function MilesTracker() {
           </Card>
         </TabsContent>
       </Tabs>
+
+      {/* 3. Four Stats Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium">Current Odometer</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{stats.currentMiles.toLocaleString()}</div>
+          </CardContent>
+        </Card>
+        
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium">Total Miles Driven</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{stats.totalMiles.toLocaleString()}</div>
+          </CardContent>
+        </Card>
+        
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium">Allowance to Date</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{Math.round(stats.allowanceToDate).toLocaleString()}</div>
+          </CardContent>
+        </Card>
+        
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium">Over/Under Allowance</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className={`text-2xl font-bold ${stats.overUnder > 0 ? 'text-red-600' : 'text-green-600'}`}>
+              {stats.overUnder > 0 ? '+' : ''}{Math.round(stats.overUnder).toLocaleString()}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* 4. Lease Information */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Lease Information</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-2">
+          <div className="flex justify-between">
+            <span>Lease Start:</span>
+            <span>{format(vehicleConfig.leaseStartDate, 'MMM dd, yyyy')}</span>
+          </div>
+          <div className="flex justify-between">
+            <span>Lease End:</span>
+            <span>{format(vehicleConfig.leaseEndDate, 'MMM dd, yyyy')}</span>
+          </div>
+          <div className="flex justify-between">
+            <span>Annual Allowance:</span>
+            <span>{vehicleConfig.annualAllowance.toLocaleString()} miles</span>
+          </div>
+          <div className="flex justify-between">
+            <span>Daily Allowance:</span>
+            <span>{Math.round(stats.dailyAllowance)} miles</span>
+          </div>
+          <div className="flex justify-between">
+            <span>Days into Lease:</span>
+            <span>{Math.max(0, stats.daysIntoLease)} days</span>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }
