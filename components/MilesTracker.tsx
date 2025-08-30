@@ -310,10 +310,10 @@ export default function MilesTracker() {
       <div className="mb-8">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-400 via-blue-300 to-orange-300">
+            <h1 className="hidden md:block text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-400 via-blue-300 to-orange-300">
               Miles Ahead 🚗💎
             </h1>
-            <p className="text-muted-foreground mt-2">
+            <p className="hidden md:block text-muted-foreground mt-2">
               Stay miles ahead of your lease allowance with smart vehicle mileage tracking
             </p>
           </div>
