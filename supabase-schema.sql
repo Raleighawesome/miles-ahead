@@ -64,3 +64,26 @@ GRANT ALL ON public.odometer_logs TO authenticated;
 GRANT ALL ON public.trip_events TO authenticated;
 GRANT ALL ON public.odometer_logs TO anon;
 GRANT ALL ON public.trip_events TO anon;
+
+-- Create gas_prices table
+CREATE TABLE IF NOT EXISTS public.gas_prices (
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    station_id TEXT NOT NULL,
+    price NUMERIC(6,3) NOT NULL,
+    recorded_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_gas_prices_station_time
+ON public.gas_prices (station_id, recorded_at);
+
+ALTER TABLE public.gas_prices ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Allow anonymous access to gas_prices" ON public.gas_prices;
+
+CREATE POLICY "Allow anonymous access to gas_prices"
+ON public.gas_prices FOR ALL
+TO anon, authenticated
+USING (true) WITH CHECK (true);
+
+GRANT ALL ON public.gas_prices TO authenticated;
+GRANT ALL ON public.gas_prices TO anon;
