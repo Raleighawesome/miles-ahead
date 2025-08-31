@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
-import { createClient } from '@supabase/supabase-js';
 import { Card, CardHeader, CardTitle, CardContent } from './ui/card';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
@@ -11,6 +10,7 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 import { format, parseISO, differenceInDays, startOfDay, subDays } from 'date-fns';
 import { Progress } from './ui/progress';
 import { env } from '../lib/env';
+import { getSupabaseClient } from '../lib/supabase';
 import ThemeToggle from './ThemeToggle';
 
 // Types
@@ -76,7 +76,7 @@ export default function MilesTracker() {
   });
 
   // Initialize Supabase client
-  const supabase = createClient(env.supabaseUrl, env.supabaseAnonKey);
+  const supabase = getSupabaseClient();
 
   // Vehicle configuration from environment
   const vehicleConfig: VehicleConfig = {
@@ -364,6 +364,7 @@ export default function MilesTracker() {
     if (!gasPrice || readings.length === 0) return;
 
     const mpgValue = parseFloat(mpg) || 1;
+    if (mpgValue <= 0) return;
 
     const milesInRange = (days: number) => {
       const cutoff = subDays(new Date(), days);
@@ -388,13 +389,21 @@ export default function MilesTracker() {
     const forecastMonth = (dailyPace * 30 / mpgValue) * gasPrice;
     const forecastQuarter = (dailyPace * 90 / mpgValue) * gasPrice;
 
-    setGasStats({
-      spentWeek,
-      spentMonth,
-      spentQuarter,
-      forecastWeek,
-      forecastMonth,
-      forecastQuarter
+    setGasStats(prev => {
+      const newStats = {
+        spentWeek,
+        spentMonth,
+        spentQuarter,
+        forecastWeek,
+        forecastMonth,
+        forecastQuarter
+      };
+      
+      // Only update if values have actually changed
+      if (JSON.stringify(prev) !== JSON.stringify(newStats)) {
+        return newStats;
+      }
+      return prev;
     });
   };
 
@@ -409,7 +418,7 @@ export default function MilesTracker() {
 
   useEffect(() => {
     calculateGasStats(stats);
-  }, [gasPrice, priceHistory, readings, mpg, stats]);
+  }, [gasPrice, priceHistory, readings, mpg]);
 
   if (loading) {
     return (
