@@ -144,10 +144,8 @@ export default function MilesTracker() {
       if (todayPrice && todayPrice.length > 0) {
         // Use today's already scraped price
         currentPrice = (todayPrice as any)[0].price;
-        console.log('Using existing price from today:', currentPrice);
       } else {
         // No price for today, scrape new one
-        console.log('No price found for today, scraping new price...');
         const res = await fetch(`/api/gas-price?stationId=${stationId}`);
         const fetchedData = res.ok ? await res.json() : null;
         const fetched = fetchedData?.price as number | undefined;
@@ -162,12 +160,10 @@ export default function MilesTracker() {
           });
           // Update history with new price
           setPriceHistory(prev => [...prev, { price: fetched, recorded_at: new Date().toISOString() }]);
-          console.log('Scraped and saved new price:', fetched);
         } else {
           // Fallback to latest historical price if scraping fails
           const latest = history && history.length > 0 ? (history as any)[history.length - 1].price : null;
           currentPrice = latest;
-          console.log('Scraping failed, using latest historical price:', latest);
         }
       }
 
