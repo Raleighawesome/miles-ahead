@@ -85,9 +85,10 @@ export default function MilesTracker() {
     annualAllowance: env.annualAllowance
   };
 
-  // Load odometer readings on component mount
+  // Load odometer readings and trip events on component mount
   useEffect(() => {
     loadReadings();
+    loadTripEvents();
   }, []);
 
   useEffect(() => {
@@ -175,6 +176,24 @@ export default function MilesTracker() {
     }
   };
 
+  const loadTripEvents = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('trip_events')
+        .select('*')
+        .eq('vehicle_id', env.vehicleId)
+        .order('start_date', { ascending: true });
+
+      if (error) {
+        console.error('Error loading trip events:', error);
+      } else {
+        setTripEvents(data || []);
+      }
+    } catch (error) {
+      console.error('Error loading trip events:', error);
+    }
+  };
+
   const handleAddReading = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -209,6 +228,64 @@ export default function MilesTracker() {
     } catch (error) {
       console.error('Error adding reading:', error);
       alert('Error adding reading. Please try again.');
+    }
+  };
+
+  const handleAddTrip = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!newTrip.name || !newTrip.startDate || !newTrip.endDate || !newTrip.estimatedMiles) {
+      alert('Please fill in all trip fields');
+      return;
+    }
+
+    try {
+      const { error } = await (supabase as any)
+        .from('trip_events')
+        .insert([
+          {
+            vehicle_id: env.vehicleId,
+            event_name: newTrip.name,
+            start_date: newTrip.startDate,
+            end_date: newTrip.endDate,
+            estimated_miles: parseInt(newTrip.estimatedMiles)
+          }
+        ]);
+
+      if (error) {
+        console.error('Error adding trip:', error);
+        alert('Error adding trip. Please try again.');
+      } else {
+        setNewTrip({
+          name: '',
+          startDate: format(new Date(), 'yyyy-MM-dd'),
+          endDate: format(new Date(), 'yyyy-MM-dd'),
+          estimatedMiles: ''
+        });
+        loadTripEvents(); // Reload the data
+      }
+    } catch (error) {
+      console.error('Error adding trip:', error);
+      alert('Error adding trip. Please try again.');
+    }
+  };
+
+  const handleDeleteTrip = async (tripId: string) => {
+    try {
+      const { error } = await (supabase as any)
+        .from('trip_events')
+        .delete()
+        .eq('id', tripId);
+
+      if (error) {
+        console.error('Error deleting trip:', error);
+        alert('Error deleting trip. Please try again.');
+      } else {
+        loadTripEvents(); // Reload the data
+      }
+    } catch (error) {
+      console.error('Error deleting trip:', error);
+      alert('Error deleting trip. Please try again.');
     }
   };
 
@@ -439,6 +516,13 @@ export default function MilesTracker() {
       return prev;
     });
   };
+
+  // Filter to only show future/active trips (end_date hasn't passed)
+  const futureTripEvents = tripEvents.filter(trip => {
+    const endDate = parseISO(trip.end_date);
+    const today = startOfDay(new Date());
+    return endDate >= today;
+  });
 
   const stats = calculateStats();
   const chartData = prepareChartData(timeRange);
@@ -687,7 +771,7 @@ export default function MilesTracker() {
                 <CardTitle>Plan Future Trips</CardTitle>
               </CardHeader>
               <CardContent>
-                <form className="space-y-4">
+                <form onSubmit={handleAddTrip} className="space-y-4">
                   <div>
                     <Label htmlFor="tripName">Trip Name</Label>
                     <Input
@@ -746,34 +830,40 @@ export default function MilesTracker() {
             {tripEvents.length > 0 && (
               <Card>
                 <CardHeader>
-                  <CardTitle>Upcoming Trips</CardTitle>
+                  <CardTitle>Trip Events</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-3">
-                    {tripEvents.map((trip) => (
-                      <div key={trip.id} className="p-4 border rounded-lg">
-                        <div className="flex justify-between items-start">
-                          <div>
-                            <h4 className="font-medium">{trip.event_name}</h4>
-                            <p className="text-sm text-gray-600">
-                              {format(parseISO(trip.start_date), 'MMM dd')} - {format(parseISO(trip.end_date), 'MMM dd, yyyy')}
-                            </p>
-                            <p className="text-sm text-gray-500">
-                              Estimated: {trip.estimated_miles.toLocaleString()} miles
-                            </p>
+                    {tripEvents.map((trip) => {
+                      const endDate = parseISO(trip.end_date);
+                      const today = startOfDay(new Date());
+                      const isPastTrip = endDate < today;
+                      
+                      return (
+                        <div key={trip.id} className={`p-4 border rounded-lg ${isPastTrip ? 'opacity-50 bg-gray-50' : ''}`}>
+                          <div className="flex justify-between items-start">
+                            <div>
+                              <h4 className={`font-medium ${isPastTrip ? 'text-gray-500' : ''}`}>
+                                {trip.event_name} {isPastTrip && '(Completed)'}
+                              </h4>
+                              <p className={`text-sm ${isPastTrip ? 'text-gray-400' : 'text-gray-600'}`}>
+                                {format(parseISO(trip.start_date), 'MMM dd')} - {format(parseISO(trip.end_date), 'MMM dd, yyyy')}
+                              </p>
+                              <p className={`text-sm ${isPastTrip ? 'text-gray-400' : 'text-gray-500'}`}>
+                                Estimated: {trip.estimated_miles.toLocaleString()} miles
+                              </p>
+                            </div>
+                            <Button 
+                              variant="outline" 
+                              size="sm"
+                              onClick={() => handleDeleteTrip(trip.id)}
+                            >
+                              Remove
+                            </Button>
                           </div>
-                          <Button 
-                            variant="outline" 
-                            size="sm"
-                            onClick={() => {
-                              // Add delete functionality here
-                            }}
-                          >
-                            Remove
-                          </Button>
                         </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 </CardContent>
               </Card>
@@ -784,23 +874,23 @@ export default function MilesTracker() {
                 <CardTitle>Trip Impact Forecast</CardTitle>
               </CardHeader>
               <CardContent>
-                {tripEvents.length > 0 ? (
+                {futureTripEvents.length > 0 ? (
                   <div className="space-y-2">
                     <div className="flex justify-between">
                       <span>Total Planned Miles:</span>
                       <span className="font-medium">
-                        {tripEvents.reduce((sum, trip) => sum + trip.estimated_miles, 0).toLocaleString()}
+                        {futureTripEvents.reduce((sum, trip) => sum + trip.estimated_miles, 0).toLocaleString()}
                       </span>
                     </div>
                     <div className="flex justify-between">
                       <span>Impact on Mileage Bank:</span>
                       <span className={`font-medium ${
-                        (stats.overUnder + tripEvents.reduce((sum, trip) => sum + trip.estimated_miles, 0)) > 0 
+                        (stats.overUnder + futureTripEvents.reduce((sum, trip) => sum + trip.estimated_miles, 0)) > 0 
                           ? 'text-red-600' 
                           : 'text-green-600'
                       }`}>
-                        {stats.overUnder + tripEvents.reduce((sum, trip) => sum + trip.estimated_miles, 0) > 0 ? '+' : ''}
-                        {Math.round(stats.overUnder + tripEvents.reduce((sum, trip) => sum + trip.estimated_miles, 0)).toLocaleString()}
+                        {stats.overUnder + futureTripEvents.reduce((sum, trip) => sum + trip.estimated_miles, 0) > 0 ? '+' : ''}
+                        {Math.round(stats.overUnder + futureTripEvents.reduce((sum, trip) => sum + trip.estimated_miles, 0)).toLocaleString()}
                       </span>
                     </div>
                   </div>
