@@ -187,7 +187,18 @@ export default function MilesTracker() {
       if (error) {
         console.error('Error loading trip events:', error);
       } else {
-        setTripEvents(data || []);
+        // Filter out any invalid trips and ensure estimated_miles is a number
+        const validTrips = (data || []).filter((trip: any) => 
+          trip && 
+          trip.id && 
+          trip.event_name && 
+          trip.start_date && 
+          trip.end_date
+        ).map((trip: any) => ({
+          ...trip,
+          estimated_miles: Number(trip.estimated_miles) || 0
+        }));
+        setTripEvents(validTrips);
       }
     } catch (error) {
       console.error('Error loading trip events:', error);
@@ -239,6 +250,12 @@ export default function MilesTracker() {
       return;
     }
 
+    const estimatedMiles = parseInt(newTrip.estimatedMiles);
+    if (isNaN(estimatedMiles) || estimatedMiles < 0) {
+      alert('Please enter a valid number for estimated miles');
+      return;
+    }
+
     try {
       const { error } = await (supabase as any)
         .from('trip_events')
@@ -248,7 +265,7 @@ export default function MilesTracker() {
             event_name: newTrip.name,
             start_date: newTrip.startDate,
             end_date: newTrip.endDate,
-            estimated_miles: parseInt(newTrip.estimatedMiles)
+            estimated_miles: estimatedMiles
           }
         ]);
 
@@ -850,7 +867,7 @@ export default function MilesTracker() {
                                 {format(parseISO(trip.start_date), 'MMM dd')} - {format(parseISO(trip.end_date), 'MMM dd, yyyy')}
                               </p>
                               <p className={`text-sm ${isPastTrip ? 'text-gray-400' : 'text-gray-500'}`}>
-                                Estimated: {trip.estimated_miles.toLocaleString()} miles
+                                Estimated: {(trip.estimated_miles || 0).toLocaleString()} miles
                               </p>
                             </div>
                             <Button 
@@ -879,18 +896,18 @@ export default function MilesTracker() {
                     <div className="flex justify-between">
                       <span>Total Planned Miles:</span>
                       <span className="font-medium">
-                        {futureTripEvents.reduce((sum, trip) => sum + trip.estimated_miles, 0).toLocaleString()}
+                        {futureTripEvents.reduce((sum, trip) => sum + (trip.estimated_miles || 0), 0).toLocaleString()}
                       </span>
                     </div>
                     <div className="flex justify-between">
                       <span>Impact on Mileage Bank:</span>
                       <span className={`font-medium ${
-                        (stats.overUnder + futureTripEvents.reduce((sum, trip) => sum + trip.estimated_miles, 0)) > 0 
+                        (stats.overUnder + futureTripEvents.reduce((sum, trip) => sum + (trip.estimated_miles || 0), 0)) > 0 
                           ? 'text-red-600' 
                           : 'text-green-600'
                       }`}>
-                        {stats.overUnder + futureTripEvents.reduce((sum, trip) => sum + trip.estimated_miles, 0) > 0 ? '+' : ''}
-                        {Math.round(stats.overUnder + futureTripEvents.reduce((sum, trip) => sum + trip.estimated_miles, 0)).toLocaleString()}
+                        {stats.overUnder + futureTripEvents.reduce((sum, trip) => sum + (trip.estimated_miles || 0), 0) > 0 ? '+' : ''}
+                        {Math.round(stats.overUnder + futureTripEvents.reduce((sum, trip) => sum + (trip.estimated_miles || 0), 0)).toLocaleString()}
                       </span>
                     </div>
                   </div>
