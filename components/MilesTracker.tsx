@@ -7,7 +7,7 @@ import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, Legend } from 'recharts';
 import { format, parseISO, differenceInDays, startOfDay, subDays } from 'date-fns';
 import { Progress } from './ui/progress';
 import { env } from '../lib/env';
@@ -47,6 +47,7 @@ interface VehicleConfig {
 }
 
 export default function MilesTracker() {
+  const [timeRange, setTimeRange] = useState<'week' | 'month' | 'year'>('month');
   const [readings, setReadings] = useState<OdometerReading[]>([]);
   const [tripEvents, setTripEvents] = useState<TripEvent[]>([]);
   const [loading, setLoading] = useState(true);
@@ -270,21 +271,29 @@ export default function MilesTracker() {
   };
 
   // Prepare chart data
-  const prepareChartData = (): MileageData[] => {
+  const prepareChartData = (range: 'week' | 'month' | 'year'): MileageData[] => {
     if (readings.length === 0) return [];
 
-    const sortedReadings = [...readings].sort((a, b) => 
+    const sortedReadings = [...readings].sort((a, b) =>
       new Date(a.reading_date).getTime() - new Date(b.reading_date).getTime()
     );
 
     const dailyAllowance = vehicleConfig.annualAllowance / 365.25;
     const startMiles = sortedReadings[0].reading_miles;
-    
-    return sortedReadings.map((reading, index) => {
+
+    const endDate = new Date();
+    let startDate = vehicleConfig.leaseStartDate;
+    if (range === 'week') startDate = subDays(endDate, 7);
+    else if (range === 'month') startDate = subDays(endDate, 30);
+    else if (range === 'year') startDate = subDays(endDate, 365);
+
+    const filtered = sortedReadings.filter(r => parseISO(r.reading_date) >= startDate);
+
+    return filtered.map(reading => {
       const daysFromStart = differenceInDays(parseISO(reading.reading_date), vehicleConfig.leaseStartDate);
       const allowance = dailyAllowance * Math.max(0, daysFromStart);
       const actualMiles = reading.reading_miles - startMiles;
-      
+
       return {
         date: format(parseISO(reading.reading_date), 'MMM dd'),
         miles: actualMiles,
@@ -293,8 +302,24 @@ export default function MilesTracker() {
     });
   };
 
+  const prepareForecastData = () => {
+    if (!stats.blendedPace) return [];
+    const horizons = [
+      { label: '1M', days: 30 },
+      { label: '3M', days: 90 },
+      { label: '6M', days: 182 },
+      { label: '1Y', days: 365 }
+    ];
+    return horizons.map(h => {
+      const projected = stats.currentMiles + stats.blendedPace!.blendedPace * h.days;
+      const allowance = stats.dailyAllowance * (stats.daysIntoLease + h.days);
+      return { horizon: h.label, projected, allowance };
+    });
+  };
+
   const stats = calculateStats();
-  const chartData = prepareChartData();
+  const chartData = prepareChartData(timeRange);
+  const forecastData = prepareForecastData();
 
   if (loading) {
     return (
@@ -397,8 +422,17 @@ export default function MilesTracker() {
         {/* Dashboard Tab */}
         <TabsContent value="dashboard" className="space-y-4">
           <Card>
-            <CardHeader>
+            <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
               <CardTitle>Mileage Tracking Chart</CardTitle>
+              <select
+                value={timeRange}
+                onChange={(e) => setTimeRange(e.target.value as 'week' | 'month' | 'year')}
+                className="mt-2 sm:mt-0 border rounded p-1 text-sm"
+              >
+                <option value="week">Last Week</option>
+                <option value="month">Last Month</option>
+                <option value="year">Last Year</option>
+              </select>
             </CardHeader>
             <CardContent>
               {chartData.length > 0 ? (
@@ -408,21 +442,21 @@ export default function MilesTracker() {
                       <CartesianGrid strokeDasharray="3 3" stroke="#1f2937" />
                       <XAxis dataKey="date" stroke="#94a3b8" tick={{ fill: '#94a3b8' }} />
                       <YAxis stroke="#94a3b8" tick={{ fill: '#94a3b8' }} />
-                      <Tooltip 
+                      <Tooltip
                         formatter={(value: number) => [value.toLocaleString() + ' miles', '']}
                       />
-                      <Line 
-                        type="monotone" 
-                        dataKey="miles" 
-                        stroke="#60a5fa" 
+                      <Line
+                        type="monotone"
+                        dataKey="miles"
+                        stroke="#60a5fa"
                         strokeWidth={2}
                         dot={false}
                         name="Actual Miles"
                       />
-                      <Line 
-                        type="monotone" 
-                        dataKey="allowance" 
-                        stroke="#fb923c" 
+                      <Line
+                        type="monotone"
+                        dataKey="allowance"
+                        stroke="#fb923c"
                         strokeWidth={2}
                         strokeDasharray="5 5"
                         dot={false}
@@ -438,6 +472,29 @@ export default function MilesTracker() {
               )}
             </CardContent>
           </Card>
+
+          {forecastData.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Mileage Forecast</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="h-80">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={forecastData}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#1f2937" />
+                      <XAxis dataKey="horizon" stroke="#94a3b8" tick={{ fill: '#94a3b8' }} />
+                      <YAxis stroke="#94a3b8" tick={{ fill: '#94a3b8' }} />
+                      <Tooltip formatter={(value: number) => [value.toLocaleString() + ' miles', '']} />
+                      <Legend />
+                      <Bar dataKey="projected" fill="#60a5fa" name="Projected" />
+                      <Bar dataKey="allowance" fill="#fb923c" name="Allowance" />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              </CardContent>
+            </Card>
+          )}
         </TabsContent>
 
         {/* Add Reading Tab */}
