@@ -12,7 +12,6 @@ import { format, parseISO, differenceInDays, startOfDay, subDays } from 'date-fn
 import { Progress } from './ui/progress';
 import { env } from '../lib/env';
 import ThemeToggle from './ThemeToggle';
-import { scrapeGasPrice } from '../lib/gas';
 
 // Types
 interface OdometerReading {
@@ -127,7 +126,9 @@ export default function MilesTracker() {
       setPriceHistory(history || []);
 
       const latest = history && history.length > 0 ? history[history.length - 1].price : null;
-      const fetched = await scrapeGasPrice(stationId);
+      const res = await fetch(`/api/gas-price?stationId=${stationId}`);
+      const fetchedData = res.ok ? await res.json() : null;
+      const fetched = fetchedData?.price as number | undefined;
       const price = fetched ?? latest;
       if (price != null) {
         setGasPrice(price);
