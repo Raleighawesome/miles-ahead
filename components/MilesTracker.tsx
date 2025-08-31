@@ -12,6 +12,7 @@ import { format, parseISO, differenceInDays, startOfDay, subDays } from 'date-fn
 import { Progress } from './ui/progress';
 import { env } from '../lib/env';
 import ThemeToggle from './ThemeToggle';
+import { scrapeGasPrice } from '../lib/gas';
 
 // Types
 interface OdometerReading {
@@ -62,6 +63,18 @@ export default function MilesTracker() {
     endDate: format(new Date(), 'yyyy-MM-dd'),
     estimatedMiles: ''
   });
+  const [stationId, setStationId] = useState('26449');
+  const [mpg, setMpg] = useState('30');
+  const [gasPrice, setGasPrice] = useState<number | null>(null);
+  const [priceHistory, setPriceHistory] = useState<{ price: number; recorded_at: string }[]>([]);
+  const [gasStats, setGasStats] = useState({
+    spentWeek: 0,
+    spentMonth: 0,
+    spentQuarter: 0,
+    forecastWeek: 0,
+    forecastMonth: 0,
+    forecastQuarter: 0
+  });
 
   // Initialize Supabase client
   const supabase = createClient(env.supabaseUrl, env.supabaseAnonKey);
@@ -77,6 +90,10 @@ export default function MilesTracker() {
   useEffect(() => {
     loadReadings();
   }, []);
+
+  useEffect(() => {
+    loadGasPrice();
+  }, [stationId]);
 
   const loadReadings = async () => {
     try {
@@ -96,6 +113,31 @@ export default function MilesTracker() {
       console.error('Error loading readings:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadGasPrice = async () => {
+    try {
+      const { data: history } = await supabase
+        .from('gas_prices')
+        .select('price, recorded_at')
+        .eq('station_id', stationId)
+        .gte('recorded_at', subDays(new Date(), 90).toISOString())
+        .order('recorded_at', { ascending: true });
+      setPriceHistory(history || []);
+
+      const latest = history && history.length > 0 ? history[history.length - 1].price : null;
+      const fetched = await scrapeGasPrice(stationId);
+      const price = fetched ?? latest;
+      if (price != null) {
+        setGasPrice(price);
+        if (fetched) {
+          await supabase.from('gas_prices').insert({ station_id: stationId, price: fetched });
+          setPriceHistory(prev => [...prev, { price: fetched, recorded_at: new Date().toISOString() }]);
+        }
+      }
+    } catch (err) {
+      console.error('Error loading gas price:', err);
     }
   };
 
@@ -317,9 +359,56 @@ export default function MilesTracker() {
     });
   };
 
+  const calculateGasStats = (statsObj: any) => {
+    if (!gasPrice || readings.length === 0) return;
+
+    const mpgValue = parseFloat(mpg) || 1;
+
+    const milesInRange = (days: number) => {
+      const cutoff = subDays(new Date(), days);
+      const filtered = readings.filter(r => parseISO(r.reading_date) >= cutoff);
+      if (filtered.length < 2) return 0;
+      return filtered[filtered.length - 1].reading_miles - filtered[0].reading_miles;
+    };
+
+    const averagePrice = (days: number) => {
+      const cutoff = subDays(new Date(), days);
+      const relevant = priceHistory.filter(p => new Date(p.recorded_at) >= cutoff);
+      if (relevant.length === 0) return gasPrice;
+      return relevant.reduce((sum, p) => sum + p.price, 0) / relevant.length;
+    };
+
+    const spentWeek = (milesInRange(7) / mpgValue) * averagePrice(7);
+    const spentMonth = (milesInRange(30) / mpgValue) * averagePrice(30);
+    const spentQuarter = (milesInRange(90) / mpgValue) * averagePrice(90);
+
+    const dailyPace = statsObj.blendedPace ? statsObj.blendedPace.blendedPace : 0;
+    const forecastWeek = (dailyPace * 7 / mpgValue) * gasPrice;
+    const forecastMonth = (dailyPace * 30 / mpgValue) * gasPrice;
+    const forecastQuarter = (dailyPace * 90 / mpgValue) * gasPrice;
+
+    setGasStats({
+      spentWeek,
+      spentMonth,
+      spentQuarter,
+      forecastWeek,
+      forecastMonth,
+      forecastQuarter
+    });
+  };
+
   const stats = calculateStats();
   const chartData = prepareChartData(timeRange);
   const forecastData = prepareForecastData();
+  const gasChartData = [
+    { label: 'Week', spent: gasStats.spentWeek, forecast: gasStats.forecastWeek },
+    { label: 'Month', spent: gasStats.spentMonth, forecast: gasStats.forecastMonth },
+    { label: 'Quarter', spent: gasStats.spentQuarter, forecast: gasStats.forecastQuarter }
+  ];
+
+  useEffect(() => {
+    calculateGasStats(stats);
+  }, [gasPrice, priceHistory, readings, mpg, stats]);
 
   if (loading) {
     return (
@@ -752,13 +841,75 @@ export default function MilesTracker() {
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium">Over/Under Allowance</CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className={`text-2xl font-bold ${stats.overUnder > 0 ? 'text-red-600' : 'text-green-600'}`}>
-              {stats.overUnder > 0 ? '+' : ''}{Math.round(stats.overUnder).toLocaleString()}
-            </div>
-          </CardContent>
-        </Card>
+        <CardContent>
+          <div className={`text-2xl font-bold ${stats.overUnder > 0 ? 'text-red-600' : 'text-green-600'}`}>
+            {stats.overUnder > 0 ? '+' : ''}{Math.round(stats.overUnder).toLocaleString()}
+          </div>
+        </CardContent>
+      </Card>
       </div>
+
+      {/* Gas Cost Forecast */}
+      <Card>
+        <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
+          <CardTitle>Gas Costs</CardTitle>
+          <div className="flex gap-2 mt-2 sm:mt-0">
+            <Input
+              value={stationId}
+              onChange={(e) => setStationId(e.target.value)}
+              placeholder="Station ID"
+              className="w-24"
+            />
+            <Input
+              value={mpg}
+              onChange={(e) => setMpg(e.target.value)}
+              placeholder="MPG"
+              className="w-20"
+            />
+          </div>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-3 gap-4 text-center mb-4">
+            <div>
+              <div className="text-lg font-semibold">${gasStats.spentWeek.toFixed(2)}</div>
+              <div className="text-xs text-gray-500">Spent last week</div>
+            </div>
+            <div>
+              <div className="text-lg font-semibold">${gasStats.spentMonth.toFixed(2)}</div>
+              <div className="text-xs text-gray-500">Spent last month</div>
+            </div>
+            <div>
+              <div className="text-lg font-semibold">${gasStats.spentQuarter.toFixed(2)}</div>
+              <div className="text-xs text-gray-500">Spent last quarter</div>
+            </div>
+          </div>
+          <div className="grid grid-cols-3 gap-4 text-center mb-4">
+            <div>
+              <div className="text-lg font-semibold">${gasStats.forecastWeek.toFixed(2)}</div>
+              <div className="text-xs text-gray-500">Forecast next week</div>
+            </div>
+            <div>
+              <div className="text-lg font-semibold">${gasStats.forecastMonth.toFixed(2)}</div>
+              <div className="text-xs text-gray-500">Forecast next month</div>
+            </div>
+            <div>
+              <div className="text-lg font-semibold">${gasStats.forecastQuarter.toFixed(2)}</div>
+              <div className="text-xs text-gray-500">Forecast next quarter</div>
+            </div>
+          </div>
+          <ResponsiveContainer width="100%" height={200}>
+            <BarChart data={gasChartData}>
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis dataKey="label" />
+              <YAxis />
+              <Tooltip formatter={(value: number) => [`$${(value as number).toFixed(2)}`, '']} />
+              <Legend />
+              <Bar dataKey="spent" fill="#8884d8" name="Spent" />
+              <Bar dataKey="forecast" fill="#82ca9d" name="Forecast" />
+            </BarChart>
+          </ResponsiveContainer>
+        </CardContent>
+      </Card>
 
       {/* 4. Lease Information */}
       <Card>
