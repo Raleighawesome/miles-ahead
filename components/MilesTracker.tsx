@@ -117,6 +117,20 @@ export default function MilesTracker() {
 
   const loadGasPrice = async () => {
     try {
+      // Get today's date in YYYY-MM-DD format
+      const today = format(new Date(), 'yyyy-MM-dd');
+      
+      // Check if we already have a price for today
+      const { data: todayPrice } = await supabase
+        .from('gas_prices')
+        .select('price, recorded_at')
+        .eq('station_id', stationId)
+        .gte('recorded_at', `${today}T00:00:00.000Z`)
+        .lt('recorded_at', `${today}T23:59:59.999Z`)
+        .order('recorded_at', { ascending: false })
+        .limit(1);
+
+      // Get price history for charts (last 90 days)
       const { data: history } = await supabase
         .from('gas_prices')
         .select('price, recorded_at')
@@ -125,17 +139,40 @@ export default function MilesTracker() {
         .order('recorded_at', { ascending: true });
       setPriceHistory(history || []);
 
-      const latest = history && history.length > 0 ? history[history.length - 1].price : null;
-      const res = await fetch(`/api/gas-price?stationId=${stationId}`);
-      const fetchedData = res.ok ? await res.json() : null;
-      const fetched = fetchedData?.price as number | undefined;
-      const price = fetched ?? latest;
-      if (price != null) {
-        setGasPrice(price);
+      let currentPrice: number | null = null;
+
+      if (todayPrice && todayPrice.length > 0) {
+        // Use today's already scraped price
+        currentPrice = (todayPrice as any)[0].price;
+        console.log('Using existing price from today:', currentPrice);
+      } else {
+        // No price for today, scrape new one
+        console.log('No price found for today, scraping new price...');
+        const res = await fetch(`/api/gas-price?stationId=${stationId}`);
+        const fetchedData = res.ok ? await res.json() : null;
+        const fetched = fetchedData?.price as number | undefined;
+        
         if (fetched) {
-          await supabase.from('gas_prices').insert({ station_id: stationId, price: fetched });
+          currentPrice = fetched;
+          // Save the new price to database
+          await (supabase as any).from('gas_prices').insert({ 
+            station_id: stationId, 
+            price: fetched,
+            recorded_at: new Date().toISOString()
+          });
+          // Update history with new price
           setPriceHistory(prev => [...prev, { price: fetched, recorded_at: new Date().toISOString() }]);
+          console.log('Scraped and saved new price:', fetched);
+        } else {
+          // Fallback to latest historical price if scraping fails
+          const latest = history && history.length > 0 ? (history as any)[history.length - 1].price : null;
+          currentPrice = latest;
+          console.log('Scraping failed, using latest historical price:', latest);
         }
+      }
+
+      if (currentPrice != null) {
+        setGasPrice(currentPrice);
       }
     } catch (err) {
       console.error('Error loading gas price:', err);
@@ -151,7 +188,7 @@ export default function MilesTracker() {
     }
 
     try {
-      const { error } = await supabase
+      const { error } = await (supabase as any)
         .from('odometer_logs')
         .insert([
           {
