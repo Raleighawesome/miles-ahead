@@ -47,6 +47,16 @@ interface VehicleConfig {
   annualAllowance: number;
 }
 
+interface VehicleRecord {
+  id: string;
+  name?: string;
+  mpg?: number;
+  lease_start?: string;
+  lease_end?: string;
+  annual_allowance?: number;
+  overage_rate?: number;
+}
+
 export default function MilesTracker() {
   const [timeRange, setTimeRange] = useState<'week' | 'month' | 'year'>('month');
   const [readings, setReadings] = useState<OdometerReading[]>([]);
@@ -107,16 +117,27 @@ export default function MilesTracker() {
     let isMounted = true;
     (async () => {
       try {
-        const { data } = await supabase
+        const { data, error } = await supabase
           .from('vehicles')
           .select('lease_start, lease_end, annual_allowance')
           .eq('id', vehicleId)
           .maybeSingle();
-        if (!isMounted || !data) return;
+        
+        if (error) {
+          console.error('Error loading vehicle config:', error);
+          return;
+        }
+        
+        if (!isMounted) return;
+        
+        // Cast data to the proper type since TypeScript doesn't know about the extended columns
+        const vehicleData = data as VehicleRecord | null;
+        
+        // Set config from database or fall back to env defaults
         setVehicleConfig({
-          leaseStartDate: data.lease_start ? new Date(data.lease_start) : new Date(env.leaseStartDate),
-          leaseEndDate: data.lease_end ? new Date(data.lease_end) : new Date(env.leaseEndDate),
-          annualAllowance: data.annual_allowance ?? env.annualAllowance
+          leaseStartDate: vehicleData?.lease_start ? new Date(vehicleData.lease_start) : new Date(env.leaseStartDate),
+          leaseEndDate: vehicleData?.lease_end ? new Date(vehicleData.lease_end) : new Date(env.leaseEndDate),
+          annualAllowance: vehicleData?.annual_allowance ?? env.annualAllowance
         });
       } catch (_e) {}
     })();
@@ -158,8 +179,12 @@ export default function MilesTracker() {
 
       if (error) {
         console.error('Error loading vehicle:', error);
-      } else if (data && data.mpg) {
-        setMpg(data.mpg.toString());
+      } else {
+        // Cast data to the proper type since TypeScript doesn't know about the vehicle columns
+        const vehicleData = data as VehicleRecord | null;
+        if (vehicleData && vehicleData.mpg) {
+          setMpg(vehicleData.mpg.toString());
+        }
       }
     } catch (error) {
       console.error('Error loading vehicle:', error);
@@ -296,7 +321,7 @@ export default function MilesTracker() {
     const mpgValue = parseFloat(mpg);
     if (!isNaN(mpgValue) && mpgValue > 0) {
       try {
-        await supabase
+        await (supabase as any)
           .from('vehicles')
           .upsert({ id: vehicleId, mpg: mpgValue });
       } catch (error) {
