@@ -77,7 +77,7 @@ npm run dev
 
 ## Database Schema
 
-The app uses two main tables:
+The app uses three main tables:
 
 ### `odometer_logs`
 - Records vehicle odometer readings with dates
@@ -88,6 +88,10 @@ The app uses two main tables:
 - Tracks upcoming trips that will impact mileage
 - Helps adjust forecasting for planned travel
 - Includes estimated miles for each event
+
+### `vehicles`
+- Stores per-vehicle settings such as miles-per-gallon
+- Enables gas cost forecasts tailored to each vehicle
 
 ## Usage
 
