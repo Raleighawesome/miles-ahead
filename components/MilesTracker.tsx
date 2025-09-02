@@ -12,6 +12,7 @@ import { Progress } from './ui/progress';
 import { env } from '../lib/env';
 import { getSupabaseClient } from '../lib/supabase';
 import ThemeToggle from './ThemeToggle';
+import Link from 'next/link';
 
 // Types
 interface OdometerReading {
@@ -78,19 +79,49 @@ export default function MilesTracker() {
   // Initialize Supabase client
   const supabase = getSupabaseClient();
 
-  // Vehicle configuration from environment
-  const vehicleConfig: VehicleConfig = {
+  // Vehicle selection and configuration (env defaults; override from Supabase/localStorage)
+  const [vehicleId, setVehicleId] = useState(env.vehicleId);
+  const [vehicleConfig, setVehicleConfig] = useState<VehicleConfig>({
     leaseStartDate: new Date(env.leaseStartDate),
     leaseEndDate: new Date(env.leaseEndDate),
     annualAllowance: env.annualAllowance
-  };
+  });
 
-  // Load odometer readings and trip events on component mount
+  // Load selected vehicle from localStorage on mount
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem('selectedVehicleId');
+      if (stored) setVehicleId(stored);
+    } catch (_e) {}
+  }, []);
+
+  // Load data whenever the selected vehicle changes
   useEffect(() => {
     loadReadings();
     loadTripEvents();
     loadVehicle();
-  }, []);
+  }, [vehicleId]);
+
+  // Load lease/config for current vehicle
+  useEffect(() => {
+    let isMounted = true;
+    (async () => {
+      try {
+        const { data } = await supabase
+          .from('vehicles')
+          .select('lease_start, lease_end, annual_allowance')
+          .eq('id', vehicleId)
+          .maybeSingle();
+        if (!isMounted || !data) return;
+        setVehicleConfig({
+          leaseStartDate: data.lease_start ? new Date(data.lease_start) : new Date(env.leaseStartDate),
+          leaseEndDate: data.lease_end ? new Date(data.lease_end) : new Date(env.leaseEndDate),
+          annualAllowance: data.annual_allowance ?? env.annualAllowance
+        });
+      } catch (_e) {}
+    })();
+    return () => { isMounted = false; };
+  }, [vehicleId]);
 
   useEffect(() => {
     loadGasPrice();
@@ -102,7 +133,7 @@ export default function MilesTracker() {
       const { data, error } = await supabase
         .from('odometer_logs')
         .select('*')
-        .eq('vehicle_id', env.vehicleId)
+        .eq('vehicle_id', vehicleId)
         .order('reading_date', { ascending: true });
 
       if (error) {
@@ -122,7 +153,7 @@ export default function MilesTracker() {
       const { data, error } = await supabase
         .from('vehicles')
         .select('mpg')
-        .eq('id', env.vehicleId)
+        .eq('id', vehicleId)
         .single();
 
       if (error) {
@@ -200,7 +231,7 @@ export default function MilesTracker() {
       const { data, error } = await supabase
         .from('trip_events')
         .select('*')
-        .eq('vehicle_id', env.vehicleId)
+        .eq('vehicle_id', vehicleId)
         .order('start_date', { ascending: true });
 
       if (error) {
@@ -237,7 +268,7 @@ export default function MilesTracker() {
         .from('odometer_logs')
         .insert([
           {
-            vehicle_id: env.vehicleId,
+            vehicle_id: vehicleId,
             reading_date: newReading.date,
             reading_miles: parseInt(newReading.miles),
             note: newReading.notes || null
@@ -267,7 +298,7 @@ export default function MilesTracker() {
       try {
         await supabase
           .from('vehicles')
-          .upsert({ id: env.vehicleId, mpg: mpgValue });
+          .upsert({ id: vehicleId, mpg: mpgValue });
       } catch (error) {
         console.error('Error saving MPG:', error);
       }
@@ -293,7 +324,7 @@ export default function MilesTracker() {
         .from('trip_events')
         .insert([
           {
-            vehicle_id: env.vehicleId,
+            vehicle_id: vehicleId,
             event_name: newTrip.name,
             start_date: newTrip.startDate,
             end_date: newTrip.endDate,
@@ -607,7 +638,10 @@ export default function MilesTracker() {
               Stay miles ahead of your lease allowance with smart vehicle mileage tracking
             </p>
           </div>
-          <ThemeToggle />
+          <div className="flex items-center gap-2">
+            <Button asChild variant="outline" className="glow-orange"><Link href="/settings">Settings</Link></Button>
+            <ThemeToggle />
+          </div>
         </div>
       </div>
 

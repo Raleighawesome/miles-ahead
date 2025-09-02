@@ -84,6 +84,17 @@ USING (true) WITH CHECK (true);
 GRANT ALL ON public.vehicles TO authenticated;
 GRANT ALL ON public.vehicles TO anon;
 
+-- Extend vehicles with configurable settings for lease and rates
+-- (id is the vehicle identifier referenced by other tables)
+ALTER TABLE public.vehicles
+ADD COLUMN IF NOT EXISTS lease_start DATE,
+ADD COLUMN IF NOT EXISTS lease_end DATE,
+ADD COLUMN IF NOT EXISTS annual_allowance INTEGER,
+ADD COLUMN IF NOT EXISTS overage_rate NUMERIC(8,4);
+
+-- Optional helper index if querying vehicles by lease dates or allowance is frequent
+-- (not strictly required for our simple reads)
+
 -- Create gas_prices table
 CREATE TABLE IF NOT EXISTS public.gas_prices (
     id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
