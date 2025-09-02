@@ -65,6 +65,25 @@ GRANT ALL ON public.trip_events TO authenticated;
 GRANT ALL ON public.odometer_logs TO anon;
 GRANT ALL ON public.trip_events TO anon;
 
+-- Create vehicles table
+CREATE TABLE IF NOT EXISTS public.vehicles (
+    id TEXT PRIMARY KEY,
+    name TEXT,
+    mpg NUMERIC(6,3)
+);
+
+ALTER TABLE public.vehicles ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Allow anonymous access to vehicles" ON public.vehicles;
+
+CREATE POLICY "Allow anonymous access to vehicles"
+ON public.vehicles FOR ALL
+TO anon, authenticated
+USING (true) WITH CHECK (true);
+
+GRANT ALL ON public.vehicles TO authenticated;
+GRANT ALL ON public.vehicles TO anon;
+
 -- Create gas_prices table
 CREATE TABLE IF NOT EXISTS public.gas_prices (
     id UUID DEFAULT gen_random_uuid() PRIMARY KEY,

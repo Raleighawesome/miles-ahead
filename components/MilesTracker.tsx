@@ -89,6 +89,7 @@ export default function MilesTracker() {
   useEffect(() => {
     loadReadings();
     loadTripEvents();
+    loadVehicle();
   }, []);
 
   useEffect(() => {
@@ -113,6 +114,24 @@ export default function MilesTracker() {
       console.error('Error loading readings:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadVehicle = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('vehicles')
+        .select('mpg')
+        .eq('id', env.vehicleId)
+        .single();
+
+      if (error) {
+        console.error('Error loading vehicle:', error);
+      } else if (data && data.mpg) {
+        setMpg(data.mpg.toString());
+      }
+    } catch (error) {
+      console.error('Error loading vehicle:', error);
     }
   };
 
@@ -154,7 +173,7 @@ export default function MilesTracker() {
         if (fetched) {
           currentPrice = fetched;
           // Save the new price to database
-          await (supabase as any).from('gas_prices').insert({ 
+          await (supabase as any).from('gas_prices').insert({
             station_id: stationId, 
             price: fetched,
             recorded_at: new Date().toISOString()
@@ -239,6 +258,19 @@ export default function MilesTracker() {
     } catch (error) {
       console.error('Error adding reading:', error);
       alert('Error adding reading. Please try again.');
+    }
+  };
+
+  const handleMpgBlur = async () => {
+    const mpgValue = parseFloat(mpg);
+    if (!isNaN(mpgValue) && mpgValue > 0) {
+      try {
+        await supabase
+          .from('vehicles')
+          .upsert({ id: env.vehicleId, mpg: mpgValue });
+      } catch (error) {
+        console.error('Error saving MPG:', error);
+      }
     }
   };
 
@@ -1013,6 +1045,7 @@ export default function MilesTracker() {
             <Input
               value={mpg}
               onChange={(e) => setMpg(e.target.value)}
+              onBlur={handleMpgBlur}
               placeholder="MPG"
               className="w-20"
             />
