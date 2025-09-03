@@ -7,6 +7,7 @@ const ALLOWED_IPS = process.env.ALLOWED_IPS
   : [
       '136.61.6.179', // Your current home IP
       '104.28.138.17', // Your phone's mobile data IP
+      '146.75.234.49', // Additional allowed IP
       // Add any other home computer IPs if they're different
     ]
 
