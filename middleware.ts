@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 
 // Get allowed IPs from environment variable, fallback to hardcoded list
+// Trim each IP to avoid issues with spaces when using a comma separated list
 const ALLOWED_IPS = process.env.ALLOWED_IPS
-  ? process.env.ALLOWED_IPS.split(',')
+  ? process.env.ALLOWED_IPS.split(',').map((ip) => ip.trim())
   : [
       '136.61.6.179', // Your current home IP
       '104.28.138.17', // Your phone's mobile data IP
@@ -10,11 +11,17 @@ const ALLOWED_IPS = process.env.ALLOWED_IPS
     ]
 
 export function middleware(request: NextRequest) {
-  // Get the client IP address
-  const ip = request.headers.get('x-forwarded-for')?.split(',')[0]
-    || request.headers.get('x-real-ip')
-    || request.headers.get('cf-connecting-ip') // Cloudflare
-    || 'unknown'
+  // Get the client IP address. Handle missing headers gracefully to prevent
+  // runtime errors during build or edge execution when some headers may not
+  // be present.
+  const forwardedFor = request.headers.get('x-forwarded-for')
+  const ip =
+    forwardedFor?.split(',')[0]?.trim() ||
+    request.headers.get('x-real-ip') ||
+    request.headers.get('cf-connecting-ip') || // Cloudflare
+    // `request.ip` is not typed in `NextRequest`, cast to access when available
+    (request as any).ip ||
+    'unknown'
 
   console.log(`Access attempt from IP: ${ip}`)
 
