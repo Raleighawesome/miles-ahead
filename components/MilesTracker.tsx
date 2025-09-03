@@ -160,7 +160,31 @@ export default function MilesTracker() {
       if (error) {
         console.error('Error loading readings:', error);
       } else {
-        setReadings(data || []);
+        // Aggregate multiple readings per day by summing their miles
+        const dailyTotals: Record<string, number> = {};
+        (data || []).forEach((r: OdometerReading) => {
+          dailyTotals[r.reading_date] = (dailyTotals[r.reading_date] || 0) + r.reading_miles;
+        });
+
+        // Convert summed daily values into cumulative readings so downstream
+        // calculations that expect odometer values continue to work
+        const aggregated: OdometerReading[] = [];
+        let runningTotal = 0;
+        Object.keys(dailyTotals)
+          .sort((a, b) => new Date(a).getTime() - new Date(b).getTime())
+          .forEach((date) => {
+            runningTotal += dailyTotals[date];
+            aggregated.push({
+              id: date,
+              reading_date: date,
+              reading_miles: runningTotal,
+              note: undefined,
+              tags: undefined,
+              created_at: new Date(date).toISOString()
+            });
+          });
+
+        setReadings(aggregated);
       }
     } catch (error) {
       console.error('Error loading readings:', error);
