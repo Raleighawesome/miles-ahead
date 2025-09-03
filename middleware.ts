@@ -11,9 +11,9 @@ const ALLOWED_IPS = process.env.ALLOWED_IPS
 
 export function middleware(request: NextRequest) {
   // Get the client IP address
-  const ip = request.geo.ip 
-    || request.headers.get('x-forwarded-for')?.split(',')[0]
+  const ip = request.headers.get('x-forwarded-for')?.split(',')[0]
     || request.headers.get('x-real-ip')
+    || request.headers.get('cf-connecting-ip') // Cloudflare
     || 'unknown'
 
   console.log(`Access attempt from IP: ${ip}`)
