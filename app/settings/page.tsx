@@ -2,13 +2,15 @@
 
 import React from "react";
 import Link from "next/link";
-import { createClient } from "@supabase/supabase-js";
 import { env } from "@/lib/env";
+import { getSupabaseClient } from "@/lib/supabase";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import ThemeToggle from "@/components/ThemeToggle";
+
+export const dynamic = "force-dynamic";
 
 type VehicleSettings = {
   id: string;
@@ -26,7 +28,7 @@ export default function SettingsPage() {
   const [error, setError] = React.useState<string | null>(null);
   const [success, setSuccess] = React.useState<string | null>(null);
 
-  const supabase = React.useMemo(() => createClient(env.supabaseUrl, env.supabaseAnonKey), []);
+  const supabase = React.useMemo(() => getSupabaseClient(), []);
 
   const [vehicleId, setVehicleId] = React.useState<string>(env.vehicleId);
   const [name, setName] = React.useState<string>("");
