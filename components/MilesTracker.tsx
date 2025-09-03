@@ -160,29 +160,31 @@ export default function MilesTracker() {
       if (error) {
         console.error('Error loading readings:', error);
       } else {
-        // Aggregate multiple readings per day by summing their miles
-        const dailyTotals: Record<string, number> = {};
+        // Aggregate multiple readings per day correctly:
+        // For each date, use the last (max) odometer reading of the day.
+        // This ensures daily deltas = (max - min) for that date and
+        // preserves odometer semantics for downstream calculations.
+        const perDay: Record<string, { min: number; max: number }> = {};
         (data || []).forEach((r: OdometerReading) => {
-          dailyTotals[r.reading_date] = (dailyTotals[r.reading_date] || 0) + r.reading_miles;
+          const d = r.reading_date;
+          const val = r.reading_miles;
+          if (!perDay[d]) perDay[d] = { min: val, max: val };
+          else {
+            if (val < perDay[d].min) perDay[d].min = val;
+            if (val > perDay[d].max) perDay[d].max = val;
+          }
         });
 
-        // Convert summed daily values into cumulative readings so downstream
-        // calculations that expect odometer values continue to work
-        const aggregated: OdometerReading[] = [];
-        let runningTotal = 0;
-        Object.keys(dailyTotals)
+        const aggregated: OdometerReading[] = Object.keys(perDay)
           .sort((a, b) => new Date(a).getTime() - new Date(b).getTime())
-          .forEach((date) => {
-            runningTotal += dailyTotals[date];
-            aggregated.push({
-              id: date,
-              reading_date: date,
-              reading_miles: runningTotal,
-              note: undefined,
-              tags: undefined,
-              created_at: new Date(date).toISOString()
-            });
-          });
+          .map((date) => ({
+            id: date,
+            reading_date: date,
+            reading_miles: perDay[date].max, // end-of-day odometer
+            note: undefined,
+            tags: undefined,
+            created_at: new Date(date).toISOString(),
+          }));
 
         setReadings(aggregated);
       }
@@ -279,25 +281,26 @@ export default function MilesTracker() {
     try {
       const { data, error } = await supabase
         .from('trip_events')
-        .select('*')
+        .select('id, vehicle_id, name, start_date, end_date, est_miles, created_at')
         .eq('vehicle_id', vehicleId)
         .order('start_date', { ascending: true });
 
       if (error) {
         console.error('Error loading trip events:', error);
       } else {
-        // Filter out any invalid trips and ensure estimated_miles is a number
-        const validTrips = (data || []).filter((trip: any) => 
-          trip && 
-          trip.id && 
-          trip.event_name && 
-          trip.start_date && 
-          trip.end_date
-        ).map((trip: any) => ({
-          ...trip,
-          estimated_miles: Number(trip.estimated_miles) || 0
-        }));
-        setTripEvents(validTrips);
+        const raw = (data || []) as any[];
+        const validTrips = raw
+          .filter((trip) => trip && trip.id && trip.name && trip.start_date && trip.end_date)
+          .map((trip) => ({
+            id: trip.id,
+            vehicle_id: trip.vehicle_id,
+            event_name: trip.name,
+            start_date: trip.start_date,
+            end_date: trip.end_date,
+            estimated_miles: Number(trip.est_miles) || 0,
+            created_at: trip.created_at,
+          }));
+        setTripEvents(validTrips as any);
       }
     } catch (error) {
       console.error('Error loading trip events:', error);
@@ -374,10 +377,10 @@ export default function MilesTracker() {
         .insert([
           {
             vehicle_id: vehicleId,
-            event_name: newTrip.name,
+            name: newTrip.name,
             start_date: newTrip.startDate,
             end_date: newTrip.endDate,
-            estimated_miles: estimatedMiles
+            est_miles: estimatedMiles
           }
         ]);
 
@@ -656,6 +659,20 @@ export default function MilesTracker() {
   const stats = calculateStats();
   const chartData = prepareChartData(timeRange);
   const forecastData = prepareForecastData();
+  const lineDomain = React.useMemo(() => {
+    if (!chartData.length) return undefined;
+    const last = chartData[chartData.length - 1];
+    const minVal = Math.max(0, Math.min(last.miles, last.allowance) - 1000);
+    const maxVal = Math.max(last.miles, last.allowance) + 1000;
+    return [minVal, maxVal] as [number, number];
+  }, [chartData]);
+  const forecastDomain = React.useMemo(() => {
+    if (!forecastData.length) return undefined;
+    const last = forecastData[forecastData.length - 1] as any;
+    const minVal = Math.max(0, Math.min(last.projected ?? 0, last.allowance ?? 0) - 1000);
+    const maxVal = Math.max(last.projected ?? 0, last.allowance ?? 0) + 1000;
+    return [minVal, maxVal] as [number, number];
+  }, [forecastData]);
   const gasChartData = [
     { label: 'Week', spent: gasStats.spentWeek, forecast: gasStats.forecastWeek },
     { label: 'Month', spent: gasStats.spentMonth, forecast: gasStats.forecastMonth },
@@ -789,7 +806,7 @@ export default function MilesTracker() {
                     <LineChart data={chartData}>
                       <CartesianGrid strokeDasharray="3 3" stroke="#1f2937" />
                       <XAxis dataKey="date" stroke="#94a3b8" tick={{ fill: '#94a3b8' }} />
-                      <YAxis stroke="#94a3b8" tick={{ fill: '#94a3b8' }} />
+                      <YAxis stroke="#94a3b8" tick={{ fill: '#94a3b8' }} domain={lineDomain as any} />
                       <Tooltip
                         formatter={(value: number) => [value.toLocaleString() + ' miles', '']}
                       />
@@ -832,7 +849,7 @@ export default function MilesTracker() {
                     <BarChart data={forecastData}>
                       <CartesianGrid strokeDasharray="3 3" stroke="#1f2937" />
                       <XAxis dataKey="horizon" stroke="#94a3b8" tick={{ fill: '#94a3b8' }} />
-                      <YAxis stroke="#94a3b8" tick={{ fill: '#94a3b8' }} />
+                      <YAxis stroke="#94a3b8" tick={{ fill: '#94a3b8' }} domain={forecastDomain as any} />
                       <Tooltip formatter={(value: number) => [value.toLocaleString() + ' miles', '']} />
                       <Legend />
                       <Bar dataKey="projected" fill="#60a5fa" name="Projected" />
@@ -1073,16 +1090,8 @@ export default function MilesTracker() {
         </TabsContent>
       </Tabs>
 
-      {/* 3. Four Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Current Odometer</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.currentMiles.toLocaleString()}</div>
-          </CardContent>
-        </Card>
+      {/* 3. Three Stats Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         
         <Card>
           <CardHeader className="pb-2">
@@ -1093,25 +1102,46 @@ export default function MilesTracker() {
           </CardContent>
         </Card>
         
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Allowance to Date</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{Math.round(stats.allowanceToDate).toLocaleString()}</div>
-          </CardContent>
-        </Card>
         
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium">Over/Under Allowance</CardTitle>
           </CardHeader>
-        <CardContent>
-          <div className={`text-2xl font-bold ${stats.overUnder > 0 ? 'text-red-600' : 'text-green-600'}`}>
-            {stats.overUnder > 0 ? '+' : ''}{Math.round(stats.overUnder).toLocaleString()}
-          </div>
-        </CardContent>
-      </Card>
+          <CardContent>
+            <div className={`text-2xl font-bold ${stats.overUnder > 0 ? 'text-red-600' : 'text-green-600'}`}>
+              {stats.overUnder > 0 ? '+' : ''}{Math.round(stats.overUnder).toLocaleString()}
+            </div>
+          </CardContent>
+        </Card>
+        
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium">Trip Impact Forecast</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {futureTripEvents.length > 0 ? (
+              <div className="space-y-2">
+                <div className="text-lg font-semibold">
+                  {futureTripEvents.reduce((sum, trip) => sum + (trip.estimated_miles || 0), 0).toLocaleString()} mi
+                </div>
+                <div className="text-xs text-gray-500">Planned Miles</div>
+                <div className={`text-sm font-medium ${
+                  (stats.overUnder + futureTripEvents.reduce((sum, trip) => sum + (trip.estimated_miles || 0), 0)) > 0 
+                    ? 'text-red-600' 
+                    : 'text-green-600'
+                }`}>
+                  {stats.overUnder + futureTripEvents.reduce((sum, trip) => sum + (trip.estimated_miles || 0), 0) > 0 ? '+' : ''}
+                  {Math.round(stats.overUnder + futureTripEvents.reduce((sum, trip) => sum + (trip.estimated_miles || 0), 0)).toLocaleString()} projected
+                </div>
+              </div>
+            ) : (
+              <div className="text-gray-500 text-center">
+                <div className="text-lg font-semibold">0 mi</div>
+                <div className="text-xs">No trips planned</div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
       </div>
 
       {/* Gas Cost Forecast */}
