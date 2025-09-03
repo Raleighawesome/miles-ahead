@@ -11,7 +11,7 @@ const ALLOWED_IPS = process.env.ALLOWED_IPS
 
 export function middleware(request: NextRequest) {
   // Get the client IP address
-  const ip = request.ip 
+  const ip = request.geo.ip 
     || request.headers.get('x-forwarded-for')?.split(',')[0]
     || request.headers.get('x-real-ip')
     || 'unknown'
