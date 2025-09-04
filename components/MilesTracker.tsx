@@ -57,6 +57,36 @@ interface VehicleRecord {
   overage_rate?: number;
 }
 
+interface GasPriceRecord {
+  price: number;
+  recorded_at: string;
+}
+
+interface TripEventInsert {
+  vehicle_id: string;
+  name: string;
+  start_date: string;
+  end_date: string;
+  est_miles: number;
+}
+
+interface OdometerLogInsert {
+  vehicle_id: string;
+  reading_date: string;
+  reading_miles: number;
+  note?: string | null;
+}
+
+interface RawTripEvent {
+  id: string;
+  vehicle_id: string;
+  name: string;
+  start_date: string;
+  end_date: string;
+  est_miles: number;
+  created_at: string;
+}
+
 export default function MilesTracker() {
   const [timeRange, setTimeRange] = useState<'week' | 'month' | 'year'>('month');
   const [readings, setReadings] = useState<OdometerReading[]>([]);
@@ -102,7 +132,9 @@ export default function MilesTracker() {
     try {
       const stored = localStorage.getItem('selectedVehicleId');
       if (stored) setVehicleId(stored);
-    } catch (_e) {}
+    } catch {
+      // Ignore localStorage errors
+    }
   }, []);
 
   // Load data whenever the selected vehicle changes
@@ -110,6 +142,7 @@ export default function MilesTracker() {
     loadReadings();
     loadTripEvents();
     loadVehicle();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [vehicleId]);
 
   // Load lease/config for current vehicle
@@ -139,13 +172,17 @@ export default function MilesTracker() {
           leaseEndDate: vehicleData?.lease_end ? new Date(vehicleData.lease_end) : new Date(env.leaseEndDate),
           annualAllowance: vehicleData?.annual_allowance ?? env.annualAllowance
         });
-      } catch (_e) {}
+      } catch {
+        // Ignore errors loading vehicle config
+      }
     })();
     return () => { isMounted = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [vehicleId]);
 
   useEffect(() => {
     loadGasPrice();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [stationId]);
 
   const loadReadings = async () => {
@@ -245,7 +282,7 @@ export default function MilesTracker() {
 
       if (todayPrice && todayPrice.length > 0) {
         // Use today's already scraped price
-        currentPrice = (todayPrice as any)[0].price;
+        currentPrice = (todayPrice as GasPriceRecord[])[0].price;
       } else {
         // No price for today, scrape new one
         const res = await fetch(`/api/gas-price?stationId=${stationId}`);
@@ -255,7 +292,7 @@ export default function MilesTracker() {
         if (fetched) {
           currentPrice = fetched;
           // Save the new price to database
-          await (supabase as any).from('gas_prices').insert({
+          await supabase.from('gas_prices').insert({
             station_id: stationId, 
             price: fetched,
             recorded_at: new Date().toISOString()
@@ -264,7 +301,7 @@ export default function MilesTracker() {
           setPriceHistory(prev => [...prev, { price: fetched, recorded_at: new Date().toISOString() }]);
         } else {
           // Fallback to latest historical price if scraping fails
-          const latest = history && history.length > 0 ? (history as any)[history.length - 1].price : null;
+          const latest = history && history.length > 0 ? (history as GasPriceRecord[])[history.length - 1].price : null;
           currentPrice = latest;
         }
       }
@@ -288,7 +325,7 @@ export default function MilesTracker() {
       if (error) {
         console.error('Error loading trip events:', error);
       } else {
-        const raw = (data || []) as any[];
+        const raw = (data || []) as RawTripEvent[];
         const validTrips = raw
           .filter((trip) => trip && trip.id && trip.name && trip.start_date && trip.end_date)
           .map((trip) => ({
@@ -300,7 +337,7 @@ export default function MilesTracker() {
             estimated_miles: Number(trip.est_miles) || 0,
             created_at: trip.created_at,
           }));
-        setTripEvents(validTrips as any);
+        setTripEvents(validTrips as TripEvent[]);
       }
     } catch (error) {
       console.error('Error loading trip events:', error);
@@ -316,16 +353,15 @@ export default function MilesTracker() {
     }
 
     try {
-      const { error } = await (supabase as any)
+      const insertData: OdometerLogInsert = {
+        vehicle_id: vehicleId,
+        reading_date: newReading.date,
+        reading_miles: parseInt(newReading.miles),
+        note: newReading.notes || null
+      };
+      const { error } = await supabase
         .from('odometer_logs')
-        .insert([
-          {
-            vehicle_id: vehicleId,
-            reading_date: newReading.date,
-            reading_miles: parseInt(newReading.miles),
-            note: newReading.notes || null
-          }
-        ]);
+        .insert([insertData]);
 
       if (error) {
         console.error('Error adding reading:', error);
@@ -348,7 +384,7 @@ export default function MilesTracker() {
     const mpgValue = parseFloat(mpg);
     if (!isNaN(mpgValue) && mpgValue > 0) {
       try {
-        await (supabase as any)
+        await supabase
           .from('vehicles')
           .upsert({ id: vehicleId, mpg: mpgValue });
       } catch (error) {
@@ -372,17 +408,16 @@ export default function MilesTracker() {
     }
 
     try {
-      const { error } = await (supabase as any)
+      const insertData: TripEventInsert = {
+        vehicle_id: vehicleId,
+        name: newTrip.name,
+        start_date: newTrip.startDate,
+        end_date: newTrip.endDate,
+        est_miles: estimatedMiles
+      };
+      const { error } = await supabase
         .from('trip_events')
-        .insert([
-          {
-            vehicle_id: vehicleId,
-            name: newTrip.name,
-            start_date: newTrip.startDate,
-            end_date: newTrip.endDate,
-            est_miles: estimatedMiles
-          }
-        ]);
+        .insert([insertData]);
 
       if (error) {
         console.error('Error adding trip:', error);
@@ -404,7 +439,7 @@ export default function MilesTracker() {
 
   const handleDeleteTrip = async (tripId: string) => {
     try {
-      const { error } = await (supabase as any)
+      const { error } = await supabase
         .from('trip_events')
         .delete()
         .eq('id', tripId);
@@ -602,7 +637,25 @@ export default function MilesTracker() {
     });
   };
 
-  const calculateGasStats = (statsObj: any) => {
+  interface StatsObject {
+    currentMiles: number;
+    totalMiles: number;
+    dailyAllowance: number;
+    allowanceToDate: number;
+    overUnder: number;
+    overUnderPct: number;
+    daysIntoLease: number;
+    alertLevel: string;
+    progressPercent: number;
+    blendedPace: {
+      thirtyDayPace: number;
+      ninetyDayPace: number;
+      lifetimePace: number;
+      blendedPace: number;
+    } | null;
+  }
+
+  const calculateGasStats = (statsObj: StatsObject) => {
     if (!gasPrice || readings.length === 0) return;
 
     const mpgValue = parseFloat(mpg) || 1;
@@ -668,7 +721,12 @@ export default function MilesTracker() {
   }, [chartData]);
   const forecastDomain = React.useMemo(() => {
     if (!forecastData.length) return undefined;
-    const last = forecastData[forecastData.length - 1] as any;
+    interface ForecastDataItem {
+      horizon: string;
+      projected: number;
+      allowance: number;
+    }
+    const last = forecastData[forecastData.length - 1] as ForecastDataItem;
     const minVal = Math.max(0, Math.min(last.projected ?? 0, last.allowance ?? 0) - 1000);
     const maxVal = Math.max(last.projected ?? 0, last.allowance ?? 0) + 1000;
     return [minVal, maxVal] as [number, number];
@@ -681,6 +739,7 @@ export default function MilesTracker() {
 
   useEffect(() => {
     calculateGasStats(stats);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [gasPrice, priceHistory, readings, mpg]);
 
   if (loading) {
@@ -806,7 +865,7 @@ export default function MilesTracker() {
                     <LineChart data={chartData}>
                       <CartesianGrid strokeDasharray="3 3" stroke="#1f2937" />
                       <XAxis dataKey="date" stroke="#94a3b8" tick={{ fill: '#94a3b8' }} />
-                      <YAxis stroke="#94a3b8" tick={{ fill: '#94a3b8' }} domain={lineDomain as any} />
+                      <YAxis stroke="#94a3b8" tick={{ fill: '#94a3b8' }} domain={lineDomain as [number, number] | undefined} />
                       <Tooltip
                         formatter={(value: number) => [value.toLocaleString() + ' miles', '']}
                       />
@@ -849,7 +908,7 @@ export default function MilesTracker() {
                     <BarChart data={forecastData}>
                       <CartesianGrid strokeDasharray="3 3" stroke="#1f2937" />
                       <XAxis dataKey="horizon" stroke="#94a3b8" tick={{ fill: '#94a3b8' }} />
-                      <YAxis stroke="#94a3b8" tick={{ fill: '#94a3b8' }} domain={forecastDomain as any} />
+                      <YAxis stroke="#94a3b8" tick={{ fill: '#94a3b8' }} domain={forecastDomain as [number, number] | undefined} />
                       <Tooltip formatter={(value: number) => [value.toLocaleString() + ' miles', '']} />
                       <Legend />
                       <Bar dataKey="projected" fill="#60a5fa" name="Projected" />

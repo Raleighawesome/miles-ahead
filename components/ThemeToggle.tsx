@@ -18,8 +18,8 @@ export default function ThemeToggle() {
       const systemPrefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
       const initial = userPref ? userPref === "dark" : systemPrefersDark;
       setIsDark(initial);
-    } catch (_e) {
-      // ignore
+    } catch {
+      // ignore localStorage access errors
     }
   }, []);
 
@@ -29,8 +29,8 @@ export default function ThemeToggle() {
     try {
       document.documentElement.classList.toggle("dark", next);
       localStorage.setItem("theme", next ? "dark" : "light");
-    } catch (_e) {
-      // ignore
+    } catch {
+      // ignore localStorage access errors
     }
   };
 

@@ -42,7 +42,9 @@ export default function SettingsPage() {
     try {
       const storedId = localStorage.getItem("selectedVehicleId");
       if (storedId) setVehicleId(storedId);
-    } catch (_e) {}
+    } catch {
+      // Ignore localStorage errors
+    }
   }, []);
 
   React.useEffect(() => {
@@ -68,8 +70,8 @@ export default function SettingsPage() {
           setAnnualAllowance(data.annual_allowance != null ? String(data.annual_allowance) : String(env.annualAllowance));
           setOverageRate(data.overage_rate != null ? String(data.overage_rate) : String(env.overageRate));
         }
-      } catch (e: any) {
-        if (isMounted) setError(e?.message || "Failed to load settings");
+      } catch (e) {
+        if (isMounted) setError(e instanceof Error ? e.message : "Failed to load settings");
       } finally {
         if (isMounted) setLoading(false);
       }
@@ -100,11 +102,13 @@ export default function SettingsPage() {
 
       try {
         localStorage.setItem("selectedVehicleId", payload.id);
-      } catch (_e) {}
+      } catch {
+        // Ignore localStorage errors
+      }
 
       setSuccess("Settings saved.");
-    } catch (e: any) {
-      setError(e?.message || "Failed to save settings");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to save settings");
     } finally {
       setSaving(false);
     }
