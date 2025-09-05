@@ -756,7 +756,7 @@ export default function MilesTracker() {
       <div className="mb-8">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="hidden md:block text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-400 via-blue-300 to-orange-300">
+            <h1 className="hidden md:block text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-400 via-indigo-300 to-purple-300">
               Miles Ahead 🚗💎
             </h1>
             <p className="hidden md:block text-muted-foreground mt-2">
@@ -764,7 +764,7 @@ export default function MilesTracker() {
             </p>
           </div>
           <div className="flex items-center gap-2">
-            <Button asChild variant="outline" className="glow-orange"><Link href="/settings">Settings</Link></Button>
+            <Button asChild variant="outline"><Link href="/settings">Settings</Link></Button>
             <ThemeToggle />
           </div>
         </div>

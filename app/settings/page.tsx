@@ -118,13 +118,13 @@ export default function SettingsPage() {
     <div className="container mx-auto p-6 space-y-6">
       <div className="mb-6 flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-400 via-blue-300 to-orange-300">
+          <h1 className="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-400 via-indigo-300 to-purple-300">
             Settings
           </h1>
           <p className="text-muted-foreground mt-2">Configure your vehicle and lease preferences</p>
         </div>
         <div className="flex items-center gap-2">
-          <Button asChild variant="outline" className="glow-orange">
+          <Button asChild variant="outline">
             <Link href="/">Back to Dashboard</Link>
           </Button>
           <ThemeToggle />
