@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import PasswordProtection from "../components/PasswordProtection";
 
 export const metadata: Metadata = {
   title: "Miles Ahead",
@@ -32,7 +33,11 @@ export default function RootLayout({
           }}
         />
       </head>
-      <body className="font-sans">{children}</body>
+      <body className="font-sans">
+        <PasswordProtection>
+          {children}
+        </PasswordProtection>
+      </body>
     </html>
   );
 }
