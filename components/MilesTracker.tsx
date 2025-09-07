@@ -1290,7 +1290,7 @@ export default function MilesTracker() {
           </div>
           <div className="flex justify-between">
             <span>Days into Lease:</span>
-            <span>{Math.max(0, stats.daysIntoLease)} days</span>
+            <span>{Math.max(0, stats.daysIntoLease)} days of {differenceInDays(vehicleConfig.leaseEndDate, vehicleConfig.leaseStartDate)} days</span>
           </div>
         </CardContent>
       </Card>
