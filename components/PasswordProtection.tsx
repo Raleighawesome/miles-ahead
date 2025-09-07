@@ -17,12 +17,12 @@ export default function PasswordProtection({ children }: PasswordProtectionProps
   const [isAuthenticated, setIsAuthenticated] = useState(false);
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
+    supabase.auth.getSession().then(({ data }: { data: { session: any } }) => {
       if (data.session) {
         setIsAuthenticated(true);
       }
     });
-    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: listener } = supabase.auth.onAuthStateChange((_event: any, session: any) => {
       setIsAuthenticated(!!session);
     });
     return () => {
