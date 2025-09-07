@@ -3,33 +3,39 @@
 import { useState, useEffect } from 'react';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
+import { getSupabaseClient } from '../lib/supabase';
 
 interface PasswordProtectionProps {
   children: React.ReactNode;
 }
 
 export default function PasswordProtection({ children }: PasswordProtectionProps) {
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const supabase = getSupabaseClient();
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
-
-  const CORRECT_PASSWORD = 'milesahead25';
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
 
   useEffect(() => {
-    const authStatus = sessionStorage.getItem('milesAuthStatus');
-    if (authStatus === 'authenticated') {
-      setIsAuthenticated(true);
-    }
-  }, []);
+    supabase.auth.getSession().then(({ data }) => {
+      if (data.session) {
+        setIsAuthenticated(true);
+      }
+    });
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
+      setIsAuthenticated(!!session);
+    });
+    return () => {
+      listener.subscription.unsubscribe();
+    };
+  }, [supabase]);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (password === CORRECT_PASSWORD) {
-      setIsAuthenticated(true);
-      sessionStorage.setItem('milesAuthStatus', 'authenticated');
-    } else {
-      setError('Incorrect password');
-      setPassword('');
+    setError('');
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    if (error) {
+      setError(error.message);
     }
   };
 
@@ -45,10 +51,23 @@ export default function PasswordProtection({ children }: PasswordProtectionProps
             Access Required
           </h2>
           <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
-            Please enter the password to continue
+            Please sign in to continue
           </p>
         </div>
         <form onSubmit={handleSubmit} className="space-y-6">
+          <div>
+            <Label htmlFor="email">Email</Label>
+            <Input
+              id="email"
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="mt-1"
+              placeholder="you@example.com"
+              autoComplete="email"
+              autoFocus
+            />
+          </div>
           <div>
             <Label htmlFor="password">Password</Label>
             <Input
@@ -58,7 +77,7 @@ export default function PasswordProtection({ children }: PasswordProtectionProps
               onChange={(e) => setPassword(e.target.value)}
               className="mt-1"
               placeholder="Enter password"
-              autoFocus
+              autoComplete="current-password"
             />
             {error && <p className="mt-1 text-sm text-red-600">{error}</p>}
           </div>
@@ -66,7 +85,7 @@ export default function PasswordProtection({ children }: PasswordProtectionProps
             type="submit"
             className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 dark:bg-blue-500 dark:hover:bg-blue-600"
           >
-            Access App
+            Sign In
           </button>
         </form>
       </div>
