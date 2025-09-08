@@ -13,6 +13,7 @@ import { env } from '../lib/env';
 import { getSupabaseClient } from '../lib/supabase';
 import ThemeToggle from './ThemeToggle';
 import Link from 'next/link';
+import OdometerButton from './OdometerButton';
 
 // Types
 interface OdometerReading {
@@ -92,11 +93,6 @@ export default function MilesTracker() {
   const [readings, setReadings] = useState<OdometerReading[]>([]);
   const [tripEvents, setTripEvents] = useState<TripEvent[]>([]);
   const [loading, setLoading] = useState(true);
-  const [newReading, setNewReading] = useState({
-    date: format(new Date(), 'yyyy-MM-dd'),
-    miles: '',
-    notes: ''
-  });
   const [newTrip, setNewTrip] = useState({
     name: '',
     startDate: format(new Date(), 'yyyy-MM-dd'),
@@ -116,8 +112,44 @@ export default function MilesTracker() {
     forecastQuarter: 0
   });
 
+  // Progress bar animation state
+  const [animatedProgressPercent, setAnimatedProgressPercent] = useState(0);
+  const [isAnimating, setIsAnimating] = useState(false);
+  const [animationId, setAnimationId] = useState(0);
+
   // Initialize Supabase client
   const supabase = getSupabaseClient();
+
+  // Animate progress bar from current value to new value
+  const animateProgressBar = (fromValue: number, toValue: number) => {
+    const currentAnimationId = animationId + 1;
+    setAnimationId(currentAnimationId);
+    setIsAnimating(true);
+    
+    const duration = 1500; // 1.5 seconds
+    const startTime = Date.now();
+    const difference = toValue - fromValue;
+    
+    const animate = () => {
+      const elapsed = Date.now() - startTime;
+      const progress = Math.min(elapsed / duration, 1);
+      
+      // Easing function for smooth animation
+      const easeOutQuart = 1 - Math.pow(1 - progress, 4);
+      const currentValue = fromValue + (difference * easeOutQuart);
+      
+      setAnimatedProgressPercent(currentValue);
+      
+      if (progress < 1 && animationId === currentAnimationId) {
+        requestAnimationFrame(animate);
+      } else {
+        setIsAnimating(false);
+        setAnimatedProgressPercent(toValue);
+      }
+    };
+    
+    requestAnimationFrame(animate);
+  };
 
   // Vehicle selection and configuration (env defaults; override from Supabase/localStorage)
   const [vehicleId, setVehicleId] = useState(env.vehicleId);
@@ -344,20 +376,14 @@ export default function MilesTracker() {
     }
   };
 
-  const handleAddReading = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    if (!newReading.miles || !newReading.date) {
-      alert('Please enter both date and miles');
-      return;
-    }
 
+  const handleOdometerButtonAdd = async (reading: { date: string; miles: string; notes: string }) => {
     try {
       const insertData: OdometerLogInsert = {
         vehicle_id: vehicleId,
-        reading_date: newReading.date,
-        reading_miles: parseInt(newReading.miles),
-        note: newReading.notes || null
+        reading_date: reading.date,
+        reading_miles: parseInt(reading.miles),
+        note: reading.notes || null
       };
       const { error } = await supabase
         .from('odometer_logs')
@@ -366,17 +392,14 @@ export default function MilesTracker() {
       if (error) {
         console.error('Error adding reading:', error);
         alert('Error adding reading. Please try again.');
+        throw error;
       } else {
-        setNewReading({
-          date: format(new Date(), 'yyyy-MM-dd'),
-          miles: '',
-          notes: ''
-        });
         loadReadings(); // Reload the data
       }
     } catch (error) {
       console.error('Error adding reading:', error);
       alert('Error adding reading. Please try again.');
+      throw error;
     }
   };
 
@@ -549,6 +572,7 @@ export default function MilesTracker() {
         daysIntoLease: 0,
         alertLevel: 'green' as const,
         progressPercent: 0,
+        progressInfo: { progressPercent: 0, scale: 1000, min: 0, max: 1000 },
         blendedPace: null
       };
     }
@@ -572,7 +596,38 @@ export default function MilesTracker() {
     const overUnderPct = allowanceToDate > 0 ? overUnder / allowanceToDate : 0;
     
     const alertLevel = getAlertLevel(overUnderPct);
-    const progressPercent = allowanceToDate > 0 ? Math.min(100, (totalMiles / allowanceToDate) * 100) : 0;
+    // Calculate meaningful progress bar scale
+    const calculateProgressBarScale = () => {
+      const actualMiles = totalMiles;
+      const allowance = allowanceToDate;
+      const difference = Math.abs(actualMiles - allowance);
+      
+      // Minimum scale of 1000 miles
+      let scale = Math.max(1000, difference);
+      
+      // Round up to nearest 1000 if over 1000
+      if (scale > 1000) {
+        scale = Math.ceil(scale / 1000) * 1000;
+      }
+      
+      // Calculate the center point and range
+      const center = (actualMiles + allowance) / 2;
+      const min = center - (scale / 2);
+      const max = center + (scale / 2);
+      
+      // Calculate progress percentage within this scale
+      const progressPercent = ((actualMiles - min) / (max - min)) * 100;
+      
+      return {
+        progressPercent: Math.max(0, Math.min(100, progressPercent)),
+        scale,
+        min,
+        max
+      };
+    };
+    
+    const progressInfo = calculateProgressBarScale();
+    const progressPercent = progressInfo.progressPercent;
     
     const blendedPace = calculateBlendedPace();
 
@@ -586,6 +641,7 @@ export default function MilesTracker() {
       daysIntoLease,
       alertLevel,
       progressPercent,
+      progressInfo,
       blendedPace
     };
   };
@@ -647,6 +703,12 @@ export default function MilesTracker() {
     daysIntoLease: number;
     alertLevel: string;
     progressPercent: number;
+    progressInfo: {
+      progressPercent: number;
+      scale: number;
+      min: number;
+      max: number;
+    };
     blendedPace: {
       thirtyDayPace: number;
       ninetyDayPace: number;
@@ -742,6 +804,24 @@ export default function MilesTracker() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [gasPrice, priceHistory, readings, mpg]);
 
+  // Initialize animated progress on first load
+  useEffect(() => {
+    if (readings.length > 0 && animatedProgressPercent === 0 && stats.progressPercent > 0) {
+      setAnimatedProgressPercent(stats.progressPercent);
+    }
+  }, [readings.length, stats.progressPercent, animatedProgressPercent]);
+
+  // Animate progress bar when stats change
+  useEffect(() => {
+    const newProgressPercent = stats.progressPercent;
+    if (newProgressPercent !== animatedProgressPercent && readings.length > 0 && animatedProgressPercent > 0) {
+      animateProgressBar(animatedProgressPercent, newProgressPercent);
+    } else if (readings.length === 0) {
+      setAnimatedProgressPercent(0);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stats.progressPercent]);
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -796,17 +876,28 @@ export default function MilesTracker() {
                 <span>{Math.round(stats.allowanceToDate).toLocaleString()} allowance</span>
               </div>
               <Progress 
-                value={stats.progressPercent} 
-                className={`h-3 ${
+                value={animatedProgressPercent} 
+                className={`h-3 transition-all duration-300 ${
+                  isAnimating ? 'drop-shadow-lg' : ''
+                } ${
                   stats.alertLevel === 'green' ? '[&>div]:bg-green-500' :
                   stats.alertLevel === 'yellow' ? '[&>div]:bg-yellow-500' :
                   stats.alertLevel === 'orange' ? '[&>div]:bg-orange-500' :
                   '[&>div]:bg-red-500'
+                } ${
+                  isAnimating && stats.alertLevel === 'green' ? '[&>div]:shadow-[0_0_8px_rgba(34,197,94,0.6)]' :
+                  isAnimating && stats.alertLevel === 'yellow' ? '[&>div]:shadow-[0_0_8px_rgba(234,179,8,0.6)]' :
+                  isAnimating && stats.alertLevel === 'orange' ? '[&>div]:shadow-[0_0_8px_rgba(251,146,60,0.6)]' :
+                  isAnimating ? '[&>div]:shadow-[0_0_8px_rgba(239,68,68,0.6)]' : ''
                 }`}
               />
               <div className="flex justify-between text-xs text-gray-500">
-                <span>{stats.progressPercent.toFixed(1)}% of allowance used</span>
-                <span>{stats.overUnder > 0 ? `+${Math.round(stats.overUnder)}` : Math.round(stats.overUnder)} miles</span>
+                <span>{Math.round(stats.progressInfo.min).toLocaleString()}</span>
+                <span>Scale: {stats.progressInfo.scale.toLocaleString()} miles</span>
+                <span>{Math.round(stats.progressInfo.max).toLocaleString()}</span>
+              </div>
+              <div className="text-center text-xs text-gray-500">
+                {stats.overUnder > 0 ? `+${Math.round(stats.overUnder)}` : Math.round(stats.overUnder)} miles vs allowance
               </div>
             </div>
             
@@ -834,11 +925,35 @@ export default function MilesTracker() {
         </Card>
       )}
 
+      {/* Over/Under Allowance and Total Miles Cards */}
+      {readings.length > 0 && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium">Over/Under Allowance</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className={`text-2xl font-bold ${stats.overUnder > 0 ? 'text-red-600' : 'text-green-600'}`}>
+                {stats.overUnder > 0 ? '+' : ''}{Math.round(stats.overUnder).toLocaleString()}
+              </div>
+            </CardContent>
+          </Card>
+          
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium">Total Miles Driven</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{stats.totalMiles.toLocaleString()}</div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
       {/* 2. Mileage Tracking Chart with Tabs */}
       <Tabs defaultValue="dashboard" className="space-y-4">
-        <TabsList className="grid w-full grid-cols-4">
+        <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="dashboard">Dashboard</TabsTrigger>
-          <TabsTrigger value="log">Add Reading</TabsTrigger>
           <TabsTrigger value="trips">Plan Trips</TabsTrigger>
           <TabsTrigger value="history">History</TabsTrigger>
         </TabsList>
@@ -848,15 +963,38 @@ export default function MilesTracker() {
           <Card>
             <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
               <CardTitle>Mileage Tracking Chart</CardTitle>
-              <select
-                value={timeRange}
-                onChange={(e) => setTimeRange(e.target.value as 'week' | 'month' | 'year')}
-                className="mt-2 sm:mt-0 border rounded p-1 text-sm"
-              >
-                <option value="week">Last Week</option>
-                <option value="month">Last Month</option>
-                <option value="year">Last Year</option>
-              </select>
+              <div className="flex bg-gray-100 dark:bg-gray-800 rounded-lg p-1 mt-3 sm:mt-0">
+                <button
+                  onClick={() => setTimeRange('week')}
+                  className={`px-2 sm:px-3 py-1 sm:py-1.5 text-xs sm:text-sm font-medium rounded-md transition-all duration-200 ${
+                    timeRange === 'week'
+                      ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm'
+                      : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
+                  }`}
+                >
+                  Week
+                </button>
+                <button
+                  onClick={() => setTimeRange('month')}
+                  className={`px-2 sm:px-3 py-1 sm:py-1.5 text-xs sm:text-sm font-medium rounded-md transition-all duration-200 ${
+                    timeRange === 'month'
+                      ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm'
+                      : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
+                  }`}
+                >
+                  Month
+                </button>
+                <button
+                  onClick={() => setTimeRange('year')}
+                  className={`px-2 sm:px-3 py-1 sm:py-1.5 text-xs sm:text-sm font-medium rounded-md transition-all duration-200 ${
+                    timeRange === 'year'
+                      ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm'
+                      : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
+                  }`}
+                >
+                  Year
+                </button>
+              </div>
             </CardHeader>
             <CardContent>
               {chartData.length > 0 ? (
@@ -921,55 +1059,6 @@ export default function MilesTracker() {
           )}
         </TabsContent>
 
-        {/* Add Reading Tab */}
-        <TabsContent value="log">
-          <Card>
-            <CardHeader>
-              <CardTitle>Add Odometer Reading</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <form onSubmit={handleAddReading} className="space-y-4">
-                <div>
-                  <Label htmlFor="date">Date</Label>
-                  <Input
-                    id="date"
-                    type="date"
-                    value={newReading.date}
-                    onChange={(e) => setNewReading(prev => ({ ...prev, date: e.target.value }))}
-                    required
-                  />
-                </div>
-                
-                <div>
-                  <Label htmlFor="miles">Odometer Reading (miles)</Label>
-                  <Input
-                    id="miles"
-                    type="number"
-                    value={newReading.miles}
-                    onChange={(e) => setNewReading(prev => ({ ...prev, miles: e.target.value }))}
-                    placeholder="e.g. 25000"
-                    required
-                  />
-                </div>
-                
-                <div>
-                  <Label htmlFor="notes">Notes (optional)</Label>
-                  <Input
-                    id="notes"
-                    type="text"
-                    value={newReading.notes}
-                    onChange={(e) => setNewReading(prev => ({ ...prev, notes: e.target.value }))}
-                    placeholder="e.g. Oil change, road trip, etc."
-                  />
-                </div>
-                
-                <Button type="submit" className="w-full">
-                  Add Reading
-                </Button>
-              </form>
-            </CardContent>
-          </Card>
-        </TabsContent>
 
         {/* Trip Planning Tab */}
         <TabsContent value="trips">
@@ -1149,78 +1238,52 @@ export default function MilesTracker() {
         </TabsContent>
       </Tabs>
 
-      {/* 3. Three Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Total Miles Driven</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.totalMiles.toLocaleString()}</div>
-          </CardContent>
-        </Card>
-        
-        
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Over/Under Allowance</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className={`text-2xl font-bold ${stats.overUnder > 0 ? 'text-red-600' : 'text-green-600'}`}>
-              {stats.overUnder > 0 ? '+' : ''}{Math.round(stats.overUnder).toLocaleString()}
+      {/* 3. Trip Impact Forecast Card */}
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-sm font-medium">Trip Impact Forecast</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {futureTripEvents.length > 0 ? (
+            <div className="space-y-2">
+              <div className="text-lg font-semibold">
+                {futureTripEvents.reduce((sum, trip) => sum + (trip.estimated_miles || 0), 0).toLocaleString()} mi
+              </div>
+              <div className="text-xs text-gray-500">Planned Miles</div>
+              <div className={`text-sm font-medium ${
+                (stats.overUnder + futureTripEvents.reduce((sum, trip) => sum + (trip.estimated_miles || 0), 0)) > 0 
+                  ? 'text-red-600' 
+                  : 'text-green-600'
+              }`}>
+                {stats.overUnder + futureTripEvents.reduce((sum, trip) => sum + (trip.estimated_miles || 0), 0) > 0 ? '+' : ''}
+                {Math.round(stats.overUnder + futureTripEvents.reduce((sum, trip) => sum + (trip.estimated_miles || 0), 0)).toLocaleString()} projected
+              </div>
             </div>
-          </CardContent>
-        </Card>
-        
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Trip Impact Forecast</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {futureTripEvents.length > 0 ? (
-              <div className="space-y-2">
-                <div className="text-lg font-semibold">
-                  {futureTripEvents.reduce((sum, trip) => sum + (trip.estimated_miles || 0), 0).toLocaleString()} mi
-                </div>
-                <div className="text-xs text-gray-500">Planned Miles</div>
-                <div className={`text-sm font-medium ${
-                  (stats.overUnder + futureTripEvents.reduce((sum, trip) => sum + (trip.estimated_miles || 0), 0)) > 0 
-                    ? 'text-red-600' 
-                    : 'text-green-600'
-                }`}>
-                  {stats.overUnder + futureTripEvents.reduce((sum, trip) => sum + (trip.estimated_miles || 0), 0) > 0 ? '+' : ''}
-                  {Math.round(stats.overUnder + futureTripEvents.reduce((sum, trip) => sum + (trip.estimated_miles || 0), 0)).toLocaleString()} projected
-                </div>
-              </div>
-            ) : (
-              <div className="text-gray-500 text-center">
-                <div className="text-lg font-semibold">0 mi</div>
-                <div className="text-xs">No trips planned</div>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      </div>
+          ) : (
+            <div className="text-gray-500 text-center">
+              <div className="text-lg font-semibold">0 mi</div>
+              <div className="text-xs">No trips planned</div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Gas Cost Forecast */}
       <Card>
         <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
           <CardTitle>Gas Costs</CardTitle>
-          <div className="flex gap-2 mt-2 sm:mt-0">
+          <div className="flex items-center gap-3 mt-2 sm:mt-0">
             <Input
               value={stationId}
               onChange={(e) => setStationId(e.target.value)}
               placeholder="Station ID"
               className="w-24"
             />
-            <Input
-              value={mpg}
-              onChange={(e) => setMpg(e.target.value)}
-              onBlur={handleMpgBlur}
-              placeholder="MPG"
-              className="w-20"
-            />
+            {gasPrice && (
+              <div className="text-lg font-semibold text-gray-900 dark:text-white">
+                ${gasPrice.toFixed(2)}
+              </div>
+            )}
           </div>
         </CardHeader>
         <CardContent>
@@ -1294,6 +1357,9 @@ export default function MilesTracker() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Floating Odometer Button */}
+      <OdometerButton onAddReading={handleOdometerButtonAdd} />
     </div>
   );
 }
