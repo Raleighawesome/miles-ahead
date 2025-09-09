@@ -574,7 +574,7 @@ export default function MilesTracker() {
         progressPercent: 0,
         progressInfo: { progressPercent: 0, scale: 1000, min: 0, max: 1000 },
         blendedPace: null,
-        allowanceRemainingPct: 1,
+        allowanceRemaining: 0,
         allowanceColor: 'green' as const
       };
     }
@@ -598,33 +598,18 @@ export default function MilesTracker() {
     const overUnderPct = allowanceToDate > 0 ? overUnder / allowanceToDate : 0;
     
     const alertLevel = getAlertLevel(overUnderPct);
-    // Calculate meaningful progress bar scale
+    // Progress bar: fixed scale of 1000 → 0 miles of allowance remaining
+    // allowanceRemaining represents how many miles under allowance you are to-date.
     const calculateProgressBarScale = () => {
-      const actualMiles = totalMiles;
-      const allowance = allowanceToDate;
-      const difference = Math.abs(actualMiles - allowance);
-      
-      // Minimum scale of 1000 miles
-      let scale = Math.max(1000, difference);
-      
-      // Round up to nearest 1000 if over 1000
-      if (scale > 1000) {
-        scale = Math.ceil(scale / 1000) * 1000;
-      }
-      
-      // Calculate the center point and range
-      const center = (actualMiles + allowance) / 2;
-      const min = center - (scale / 2);
-      const max = center + (scale / 2);
-      
-      // Calculate progress percentage within this scale
-      const progressPercent = ((actualMiles - min) / (max - min)) * 100;
-      
+      const scale = 1000;
+      const allowanceRemaining = Math.max(0, allowanceToDate - totalMiles);
+      const clampedRemaining = Math.max(0, Math.min(allowanceRemaining, scale));
+      const progressPercent = (clampedRemaining / scale) * 100;
       return {
         progressPercent: Math.max(0, Math.min(100, progressPercent)),
         scale,
-        min,
-        max
+        min: 0,
+        max: 1000
       };
     };
     
@@ -632,13 +617,10 @@ export default function MilesTracker() {
     const progressPercent = progressInfo.progressPercent;
 
     const blendedPace = calculateBlendedPace();
-
-    const allowanceRemainingPct = allowanceToDate > 0
-      ? Math.max(0, (allowanceToDate - totalMiles) / allowanceToDate)
-      : 1;
-    const allowanceColor: 'green' | 'orange' | 'red' = allowanceRemainingPct <= 0.25
+    const allowanceRemaining = Math.max(0, allowanceToDate - totalMiles);
+    const allowanceColor: 'green' | 'orange' | 'red' = allowanceRemaining < 250
       ? 'red'
-      : allowanceRemainingPct <= 0.5
+      : allowanceRemaining < 500
         ? 'orange'
         : 'green';
 
@@ -654,7 +636,7 @@ export default function MilesTracker() {
       progressPercent,
       progressInfo,
       blendedPace,
-      allowanceRemainingPct,
+      allowanceRemaining,
       allowanceColor
     };
   };
@@ -728,7 +710,7 @@ export default function MilesTracker() {
       lifetimePace: number;
       blendedPace: number;
     } | null;
-    allowanceRemainingPct: number;
+    allowanceRemaining: number;
     allowanceColor: 'green' | 'orange' | 'red';
   }
 
@@ -896,24 +878,24 @@ export default function MilesTracker() {
                   isAnimating ? 'drop-shadow-lg' : ''
                 } ${
                   stats.allowanceColor === 'green'
-                    ? 'bg-green-500'
+                    ? '[&>div]:bg-green-500'
                     : stats.allowanceColor === 'orange'
-                      ? 'bg-orange-500'
-                      : 'bg-red-500'
+                      ? '[&>div]:bg-orange-500'
+                      : '[&>div]:bg-red-500'
                 } ${
                   isAnimating && stats.allowanceColor === 'green'
-                    ? 'shadow-[0_0_8px_rgba(34,197,94,0.6)]'
+                    ? '[&>div]:shadow-[0_0_8px_rgba(34,197,94,0.6)]'
                     : isAnimating && stats.allowanceColor === 'orange'
-                      ? 'shadow-[0_0_8px_rgba(251,146,60,0.6)]'
+                      ? '[&>div]:shadow-[0_0_8px_rgba(251,146,60,0.6)]'
                       : isAnimating
-                        ? 'shadow-[0_0_8px_rgba(239,68,68,0.6)]'
+                        ? '[&>div]:shadow-[0_0_8px_rgba(239,68,68,0.6)]'
                         : ''
-                } [&>div]:bg-gray-800 dark:[&>div]:bg-gray-300`}
+                }`}
               />
               <div className="flex justify-between text-xs text-gray-500">
-                <span>{Math.round(stats.progressInfo.min).toLocaleString()}</span>
-                <span>Scale: {stats.progressInfo.scale.toLocaleString()} miles</span>
                 <span>{Math.round(stats.progressInfo.max).toLocaleString()}</span>
+                <span>Scale: {stats.progressInfo.scale.toLocaleString()} miles</span>
+                <span>{Math.round(stats.progressInfo.min).toLocaleString()}</span>
               </div>
               <div className="text-center text-xs text-gray-500">
                 {stats.overUnder > 0 ? `+${Math.round(stats.overUnder)}` : Math.round(stats.overUnder)} miles vs allowance
