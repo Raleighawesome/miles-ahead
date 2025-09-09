@@ -560,7 +560,7 @@ export default function MilesTracker() {
   };
 
   // Calculate mileage statistics
-  const calculateStats = () => {
+  const calculateStats = (): StatsObject => {
     if (readings.length === 0) {
       return {
         currentMiles: 0,
@@ -573,7 +573,9 @@ export default function MilesTracker() {
         alertLevel: 'green' as const,
         progressPercent: 0,
         progressInfo: { progressPercent: 0, scale: 1000, min: 0, max: 1000 },
-        blendedPace: null
+        blendedPace: null,
+        allowanceRemainingPct: 1,
+        allowanceColor: 'green' as const
       };
     }
 
@@ -628,8 +630,17 @@ export default function MilesTracker() {
     
     const progressInfo = calculateProgressBarScale();
     const progressPercent = progressInfo.progressPercent;
-    
+
     const blendedPace = calculateBlendedPace();
+
+    const allowanceRemainingPct = allowanceToDate > 0
+      ? Math.max(0, (allowanceToDate - totalMiles) / allowanceToDate)
+      : 1;
+    const allowanceColor: 'green' | 'orange' | 'red' = allowanceRemainingPct <= 0.25
+      ? 'red'
+      : allowanceRemainingPct <= 0.5
+        ? 'orange'
+        : 'green';
 
     return {
       currentMiles,
@@ -642,7 +653,9 @@ export default function MilesTracker() {
       alertLevel,
       progressPercent,
       progressInfo,
-      blendedPace
+      blendedPace,
+      allowanceRemainingPct,
+      allowanceColor
     };
   };
 
@@ -715,6 +728,8 @@ export default function MilesTracker() {
       lifetimePace: number;
       blendedPace: number;
     } | null;
+    allowanceRemainingPct: number;
+    allowanceColor: 'green' | 'orange' | 'red';
   }
 
   const calculateGasStats = (statsObj: StatsObject) => {
@@ -771,7 +786,7 @@ export default function MilesTracker() {
     return endDate >= today;
   });
 
-  const stats = calculateStats();
+  const stats: StatsObject = calculateStats();
   const chartData = prepareChartData(timeRange);
   const forecastData = prepareForecastData();
   const lineDomain = React.useMemo(() => {
@@ -875,21 +890,25 @@ export default function MilesTracker() {
                 <span>{stats.totalMiles.toLocaleString()} miles</span>
                 <span>{Math.round(stats.allowanceToDate).toLocaleString()} allowance</span>
               </div>
-              <Progress 
-                value={animatedProgressPercent} 
+              <Progress
+                value={animatedProgressPercent}
                 className={`h-3 transition-all duration-300 ${
                   isAnimating ? 'drop-shadow-lg' : ''
                 } ${
-                  stats.alertLevel === 'green' ? '[&>div]:bg-green-500' :
-                  stats.alertLevel === 'yellow' ? '[&>div]:bg-yellow-500' :
-                  stats.alertLevel === 'orange' ? '[&>div]:bg-orange-500' :
-                  '[&>div]:bg-red-500'
+                  stats.allowanceColor === 'green'
+                    ? 'bg-green-500'
+                    : stats.allowanceColor === 'orange'
+                      ? 'bg-orange-500'
+                      : 'bg-red-500'
                 } ${
-                  isAnimating && stats.alertLevel === 'green' ? '[&>div]:shadow-[0_0_8px_rgba(34,197,94,0.6)]' :
-                  isAnimating && stats.alertLevel === 'yellow' ? '[&>div]:shadow-[0_0_8px_rgba(234,179,8,0.6)]' :
-                  isAnimating && stats.alertLevel === 'orange' ? '[&>div]:shadow-[0_0_8px_rgba(251,146,60,0.6)]' :
-                  isAnimating ? '[&>div]:shadow-[0_0_8px_rgba(239,68,68,0.6)]' : ''
-                }`}
+                  isAnimating && stats.allowanceColor === 'green'
+                    ? 'shadow-[0_0_8px_rgba(34,197,94,0.6)]'
+                    : isAnimating && stats.allowanceColor === 'orange'
+                      ? 'shadow-[0_0_8px_rgba(251,146,60,0.6)]'
+                      : isAnimating
+                        ? 'shadow-[0_0_8px_rgba(239,68,68,0.6)]'
+                        : ''
+                } [&>div]:bg-gray-800 dark:[&>div]:bg-gray-300`}
               />
               <div className="flex justify-between text-xs text-gray-500">
                 <span>{Math.round(stats.progressInfo.min).toLocaleString()}</span>
