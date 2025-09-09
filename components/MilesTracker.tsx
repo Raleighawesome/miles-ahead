@@ -560,7 +560,7 @@ export default function MilesTracker() {
   };
 
   // Calculate mileage statistics
-  const calculateStats = () => {
+  const calculateStats = (): StatsObject => {
     if (readings.length === 0) {
       return {
         currentMiles: 0,
@@ -636,7 +636,7 @@ export default function MilesTracker() {
     const allowanceRemainingPct = allowanceToDate > 0
       ? Math.max(0, (allowanceToDate - totalMiles) / allowanceToDate)
       : 1;
-    const allowanceColor = allowanceRemainingPct <= 0.25
+    const allowanceColor: 'green' | 'orange' | 'red' = allowanceRemainingPct <= 0.25
       ? 'red'
       : allowanceRemainingPct <= 0.5
         ? 'orange'
@@ -786,7 +786,7 @@ export default function MilesTracker() {
     return endDate >= today;
   });
 
-  const stats = calculateStats();
+  const stats: StatsObject = calculateStats();
   const chartData = prepareChartData(timeRange);
   const forecastData = prepareForecastData();
   const lineDomain = React.useMemo(() => {
