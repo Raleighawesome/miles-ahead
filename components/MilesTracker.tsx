@@ -769,6 +769,14 @@ export default function MilesTracker() {
   });
 
   const stats: StatsObject = calculateStats();
+  const totalLeaseDays = differenceInDays(
+    vehicleConfig.leaseEndDate,
+    vehicleConfig.leaseStartDate
+  );
+  const leaseProgressPercent = Math.min(
+    100,
+    Math.max(0, (stats.daysIntoLease / totalLeaseDays) * 100)
+  );
   const chartData = prepareChartData(timeRange);
   const forecastData = prepareForecastData();
   const lineDomain = React.useMemo(() => {
@@ -1354,8 +1362,9 @@ export default function MilesTracker() {
           </div>
           <div className="flex justify-between">
             <span>Days into Lease:</span>
-            <span>{Math.max(0, stats.daysIntoLease)} days of {differenceInDays(vehicleConfig.leaseEndDate, vehicleConfig.leaseStartDate)} days</span>
+            <span>{Math.max(0, stats.daysIntoLease)} days of {totalLeaseDays} days</span>
           </div>
+          <Progress value={leaseProgressPercent} className="h-2" />
         </CardContent>
       </Card>
 
