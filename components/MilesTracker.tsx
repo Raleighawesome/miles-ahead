@@ -20,6 +20,7 @@ interface OdometerReading {
   id: string;
   reading_date: string;
   reading_miles: number;
+  daily_miles?: number;
   note?: string;
   tags?: string;
   created_at: string;
@@ -245,16 +246,25 @@ export default function MilesTracker() {
           }
         });
 
-        const aggregated: OdometerReading[] = Object.keys(perDay)
-          .sort((a, b) => new Date(a).getTime() - new Date(b).getTime())
-          .map((date) => ({
+        const sortedDates = Object.keys(perDay).sort(
+          (a, b) => new Date(a).getTime() - new Date(b).getTime()
+        );
+
+        const aggregated: OdometerReading[] = sortedDates.map((date, index) => {
+          const previousDate = index > 0 ? sortedDates[index - 1] : null;
+          const previousMax = previousDate ? perDay[previousDate].max : null;
+          const dailyMiles = previousMax !== null ? perDay[date].max - previousMax : 0;
+
+          return {
             id: date,
             reading_date: date,
             reading_miles: perDay[date].max, // end-of-day odometer
+            daily_miles: Math.max(0, dailyMiles),
             note: undefined,
             tags: undefined,
             created_at: new Date(date).toISOString(),
-          }));
+          };
+        });
 
         setReadings(aggregated);
       }
@@ -1240,7 +1250,7 @@ export default function MilesTracker() {
                     <div key={reading.id} className="flex justify-between items-center p-3 border rounded-lg">
                       <div>
                         <div className="font-medium">
-                          {reading.reading_miles.toLocaleString()} miles
+                          {(reading.daily_miles ?? 0).toLocaleString()} miles ({reading.reading_miles.toLocaleString()} miles)
                         </div>
                         <div className="text-sm text-gray-600">
                           {format(parseISO(reading.reading_date), 'MMM dd, yyyy')}
