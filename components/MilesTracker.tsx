@@ -573,17 +573,22 @@ export default function MilesTracker() {
         progressInfo: { progressPercent: 0, scale: 1000, min: 0, max: 1000 },
         blendedPace: null,
         allowanceRemaining: 0,
-        allowanceColor: 'green' as const
+        allowanceColor: 'green' as const,
+        todaysMiles: 0
       };
     }
 
-    const sortedReadings = [...readings].sort((a, b) => 
+    const sortedReadings = [...readings].sort((a, b) =>
       new Date(a.reading_date).getTime() - new Date(b.reading_date).getTime()
     );
 
     const firstReading = sortedReadings[0];
     const latestReading = sortedReadings[sortedReadings.length - 1];
-    
+
+    const todayKey = format(new Date(), 'yyyy-MM-dd');
+    const todaysReading = sortedReadings.find(r => r.reading_date === todayKey);
+    const todaysMiles = todaysReading?.daily_miles ?? 0;
+
     const currentMiles = latestReading.reading_miles;
     const totalMiles = currentMiles - firstReading.reading_miles;
     
@@ -635,7 +640,8 @@ export default function MilesTracker() {
       progressInfo,
       blendedPace,
       allowanceRemaining,
-      allowanceColor
+      allowanceColor,
+      todaysMiles
     };
   };
 
@@ -714,6 +720,7 @@ export default function MilesTracker() {
     } | null;
     allowanceRemaining: number;
     allowanceColor: 'green' | 'orange' | 'red';
+    todaysMiles: number;
   }
 
   const calculateGasStats = (statsObj: StatsObject) => {
@@ -915,8 +922,8 @@ export default function MilesTracker() {
             {stats.blendedPace && (
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pt-4 border-t">
                 <div className="text-center">
-                  <div className="text-lg font-semibold">{stats.blendedPace.blendedPace.toFixed(1)}</div>
-                  <div className="text-xs text-gray-500">Blended Pace</div>
+                  <div className="text-lg font-semibold">{stats.todaysMiles.toLocaleString()}</div>
+                  <div className="text-xs text-gray-500">Today&apos;s Miles</div>
                 </div>
                 <div className="text-center">
                   <div className="text-lg font-semibold">{stats.blendedPace.thirtyDayPace.toFixed(1)}</div>
