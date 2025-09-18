@@ -26,7 +26,8 @@ interface OdometerReading {
 }
 
 interface MileageData {
-  date: string;
+  date: number;
+  label: string;
   miles: number;
   allowance: number;
   dailyMiles?: number;
@@ -403,19 +404,6 @@ export default function MilesTracker() {
     }
   };
 
-  const handleMpgBlur = async () => {
-    const mpgValue = parseFloat(mpg);
-    if (!isNaN(mpgValue) && mpgValue > 0) {
-      try {
-        await supabase
-          .from('vehicles')
-          .upsert({ id: vehicleId, mpg: mpgValue });
-      } catch (error) {
-        console.error('Error saving MPG:', error);
-      }
-    }
-  };
-
   const handleAddTrip = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -660,13 +648,17 @@ export default function MilesTracker() {
 
     const filtered = sortedReadings.filter(r => parseISO(r.reading_date) >= startDate);
 
+    const labelFormat = range === 'year' ? 'MMM dd, yyyy' : 'MMM dd';
+
     return filtered.map(reading => {
-      const daysFromStart = differenceInDays(parseISO(reading.reading_date), vehicleConfig.leaseStartDate);
+      const readingDate = parseISO(reading.reading_date);
+      const daysFromStart = differenceInDays(readingDate, vehicleConfig.leaseStartDate);
       const allowance = dailyAllowance * Math.max(0, daysFromStart);
       const actualMiles = reading.reading_miles - startMiles;
 
       return {
-        date: format(parseISO(reading.reading_date), 'MMM dd'),
+        date: readingDate.getTime(),
+        label: format(readingDate, labelFormat),
         miles: actualMiles,
         allowance: allowance
       };
@@ -1011,10 +1003,35 @@ export default function MilesTracker() {
                   <ResponsiveContainer width="100%" height="100%">
                     <LineChart data={chartData}>
                       <CartesianGrid strokeDasharray="3 3" stroke="#1f2937" />
-                      <XAxis dataKey="date" stroke="#94a3b8" tick={{ fill: '#94a3b8' }} />
+                      <XAxis
+                        dataKey="date"
+                        type="number"
+                        domain={['dataMin', 'dataMax']}
+                        scale="time"
+                        stroke="#94a3b8"
+                        tick={{ fill: '#94a3b8' }}
+                        tickFormatter={(value: number) => {
+                          const date = new Date(value);
+                          return timeRange === 'year'
+                            ? format(date, 'MMM yy')
+                            : format(date, 'MMM dd');
+                        }}
+                        allowDuplicatedCategory={false}
+                      />
                       <YAxis stroke="#94a3b8" tick={{ fill: '#94a3b8' }} domain={lineDomain as [number, number] | undefined} />
                       <Tooltip
-                        formatter={(value: number) => [value.toLocaleString() + ' miles', '']}
+                        labelFormatter={(value: number, payload) => {
+                          const fromPayload = payload?.[0]?.payload?.label;
+                          if (fromPayload) return fromPayload;
+                          const date = new Date(value);
+                          return timeRange === 'year'
+                            ? format(date, 'MMM dd, yyyy')
+                            : format(date, 'MMM dd');
+                        }}
+                        formatter={(value: number, name: string) => [
+                          `${Math.round(value).toLocaleString()} miles`,
+                          name
+                        ]}
                       />
                       <Line
                         type="monotone"

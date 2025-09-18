@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import type { AuthChangeEvent, Session } from '@supabase/supabase-js';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { getSupabaseClient } from '../lib/supabase';
@@ -17,16 +18,21 @@ export default function PasswordProtection({ children }: PasswordProtectionProps
   const [isAuthenticated, setIsAuthenticated] = useState(false);
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }: { data: { session: any } }) => {
+    const fetchSession = async () => {
+      const { data } = await supabase.auth.getSession();
       if (data.session) {
         setIsAuthenticated(true);
       }
-    });
-    const { data: listener } = supabase.auth.onAuthStateChange((_event: any, session: any) => {
-      setIsAuthenticated(!!session);
-    });
+    };
+
+    void fetchSession();
+    const { data: listener } = supabase.auth.onAuthStateChange(
+      (_event: AuthChangeEvent, session: Session | null) => {
+        setIsAuthenticated(!!session);
+      }
+    );
     return () => {
-      listener.subscription.unsubscribe();
+      listener?.subscription.unsubscribe();
     };
   }, [supabase]);
 
