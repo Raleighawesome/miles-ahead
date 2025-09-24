@@ -778,6 +778,27 @@ export default function MilesTracker() {
   });
 
   const stats: StatsObject = calculateStats();
+  const futureTripMiles = futureTripEvents.reduce(
+    (sum, trip) => sum + (trip.estimated_miles || 0),
+    0
+  );
+
+  const availableMiles = stats.allowanceToDate - stats.totalMiles;
+  const projectedAvailableMiles = availableMiles - futureTripMiles;
+
+  const formatMiles = (value: number) => {
+    const rounded = Math.round(value);
+    return Math.abs(rounded) === 0 ? '0' : rounded.toLocaleString();
+  };
+
+  const getAvailabilityColor = (value: number) => {
+    if (value > 0) return 'text-green-600';
+    if (value < 0) return 'text-red-600';
+    return 'text-gray-600';
+  };
+
+  const availableColor = getAvailabilityColor(availableMiles);
+  const projectedAvailableColor = getAvailabilityColor(projectedAvailableMiles);
   const totalLeaseDays = differenceInDays(
     vehicleConfig.leaseEndDate,
     vehicleConfig.leaseStartDate
@@ -948,11 +969,17 @@ export default function MilesTracker() {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <Card>
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium">Over/Under Allowance</CardTitle>
+              <CardTitle className="text-sm font-medium">Available</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className={`text-2xl font-bold ${stats.overUnder > 0 ? 'text-red-600' : 'text-green-600'}`}>
-                {stats.overUnder > 0 ? '+' : ''}{Math.round(stats.overUnder).toLocaleString()}
+              <div className="space-y-2">
+                <div className={`text-2xl font-bold ${availableColor}`}>
+                  {formatMiles(availableMiles)}
+                </div>
+                <div className="text-xs text-gray-500">Planned trip forecast</div>
+                <div className={`text-sm font-medium ${projectedAvailableColor}`}>
+                  {formatMiles(projectedAvailableMiles)} projected
+                </div>
               </div>
             </CardContent>
           </Card>
