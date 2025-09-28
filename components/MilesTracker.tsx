@@ -50,6 +50,30 @@ interface VehicleConfig {
   annualAllowance: number;
 }
 
+const BASE_PROGRESS_RANGE = 660;
+
+interface CenteredProgress {
+  delta: number;
+  range: number;
+  credit: number;
+  debt: number;
+}
+
+const calculateCenteredProgress = (value: number): CenteredProgress => {
+  const magnitude = Math.abs(value);
+  const multiplier = magnitude === 0 ? 1 : Math.ceil(magnitude / BASE_PROGRESS_RANGE);
+  const range = Math.max(BASE_PROGRESS_RANGE, multiplier * BASE_PROGRESS_RANGE);
+  const credit = value > 0 ? value : 0;
+  const debt = value < 0 ? Math.abs(value) : 0;
+
+  return {
+    delta: value,
+    range,
+    credit,
+    debt
+  };
+};
+
 interface VehicleRecord {
   id: string;
   name?: string;
@@ -114,44 +138,8 @@ export default function MilesTracker() {
     forecastQuarter: 0
   });
 
-  // Progress bar animation state
-  const [animatedProgressPercent, setAnimatedProgressPercent] = useState(0);
-  const [isAnimating, setIsAnimating] = useState(false);
-  const [animationId, setAnimationId] = useState(0);
-
   // Initialize Supabase client
   const supabase = getSupabaseClient();
-
-  // Animate progress bar from current value to new value
-  const animateProgressBar = (fromValue: number, toValue: number) => {
-    const currentAnimationId = animationId + 1;
-    setAnimationId(currentAnimationId);
-    setIsAnimating(true);
-    
-    const duration = 1500; // 1.5 seconds
-    const startTime = Date.now();
-    const difference = toValue - fromValue;
-    
-    const animate = () => {
-      const elapsed = Date.now() - startTime;
-      const progress = Math.min(elapsed / duration, 1);
-      
-      // Easing function for smooth animation
-      const easeOutQuart = 1 - Math.pow(1 - progress, 4);
-      const currentValue = fromValue + (difference * easeOutQuart);
-      
-      setAnimatedProgressPercent(currentValue);
-      
-      if (progress < 1 && animationId === currentAnimationId) {
-        requestAnimationFrame(animate);
-      } else {
-        setIsAnimating(false);
-        setAnimatedProgressPercent(toValue);
-      }
-    };
-    
-    requestAnimationFrame(animate);
-  };
 
   // Vehicle selection and configuration (env defaults; override from Supabase/localStorage)
   const [vehicleId, setVehicleId] = useState(env.vehicleId);
@@ -569,11 +557,7 @@ export default function MilesTracker() {
         overUnderPct: 0,
         daysIntoLease: 0,
         alertLevel: 'green' as const,
-        progressPercent: 0,
-        progressInfo: { progressPercent: 0, scale: 1000, min: 0, max: 1000 },
         blendedPace: null,
-        allowanceRemaining: 0,
-        allowanceColor: 'green' as const,
         todaysMiles: 0
       };
     }
@@ -601,31 +585,7 @@ export default function MilesTracker() {
     const overUnderPct = allowanceToDate > 0 ? overUnder / allowanceToDate : 0;
     
     const alertLevel = getAlertLevel(overUnderPct);
-    // Progress bar: fixed scale of 1000 → 0 miles of allowance remaining
-    // allowanceRemaining represents how many miles under allowance you are to-date.
-    const calculateProgressBarScale = () => {
-      const scale = 1000;
-      const allowanceRemaining = Math.max(0, allowanceToDate - totalMiles);
-      const clampedRemaining = Math.max(0, Math.min(allowanceRemaining, scale));
-      const progressPercent = (clampedRemaining / scale) * 100;
-      return {
-        progressPercent: Math.max(0, Math.min(100, progressPercent)),
-        scale,
-        min: 0,
-        max: 1000
-      };
-    };
-    
-    const progressInfo = calculateProgressBarScale();
-    const progressPercent = progressInfo.progressPercent;
-
     const blendedPace = calculateBlendedPace();
-    const allowanceRemaining = Math.max(0, allowanceToDate - totalMiles);
-    const allowanceColor: 'green' | 'orange' | 'red' = allowanceRemaining < 250
-      ? 'red'
-      : allowanceRemaining < 500
-        ? 'orange'
-        : 'green';
 
     return {
       currentMiles,
@@ -636,11 +596,7 @@ export default function MilesTracker() {
       overUnderPct,
       daysIntoLease,
       alertLevel,
-      progressPercent,
-      progressInfo,
       blendedPace,
-      allowanceRemaining,
-      allowanceColor,
       todaysMiles
     };
   };
@@ -705,21 +661,12 @@ export default function MilesTracker() {
     overUnderPct: number;
     daysIntoLease: number;
     alertLevel: string;
-    progressPercent: number;
-    progressInfo: {
-      progressPercent: number;
-      scale: number;
-      min: number;
-      max: number;
-    };
     blendedPace: {
       thirtyDayPace: number;
       ninetyDayPace: number;
       lifetimePace: number;
       blendedPace: number;
     } | null;
-    allowanceRemaining: number;
-    allowanceColor: 'green' | 'orange' | 'red';
     todaysMiles: number;
   }
 
@@ -786,6 +733,15 @@ export default function MilesTracker() {
   const availableMiles = stats.allowanceToDate - stats.totalMiles;
   const projectedAvailableMiles = availableMiles - futureTripMiles;
 
+  const currentProgress = React.useMemo(
+    () => calculateCenteredProgress(availableMiles),
+    [availableMiles]
+  );
+  const projectedProgress = React.useMemo(
+    () => calculateCenteredProgress(projectedAvailableMiles),
+    [projectedAvailableMiles]
+  );
+
   const formatMiles = (value: number) => {
     const rounded = Math.round(value);
     return Math.abs(rounded) === 0 ? '0' : rounded.toLocaleString();
@@ -795,6 +751,62 @@ export default function MilesTracker() {
     if (value > 0) return 'text-green-600';
     if (value < 0) return 'text-red-600';
     return 'text-gray-600';
+  };
+
+  const renderCenteredProgress = (
+    label: string,
+    progress: CenteredProgress,
+    description?: string
+  ) => {
+    const balanceLabel = progress.delta === 0
+      ? 'On allowance'
+      : progress.delta > 0
+        ? `${formatMiles(progress.delta)} miles credit`
+        : `${formatMiles(progress.debt)} miles debt`;
+    const balanceClass = progress.delta === 0
+      ? 'text-gray-600'
+      : progress.delta > 0
+        ? 'text-green-600'
+        : 'text-red-600';
+
+    const creditWidth = progress.range === 0 ? 0 : Math.min(50, (progress.credit / progress.range) * 50);
+    const debtWidth = progress.range === 0 ? 0 : Math.min(50, (progress.debt / progress.range) * 50);
+
+    return (
+      <div className="space-y-2">
+        <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
+          <span className="font-medium">{label}</span>
+          <span className="text-xs text-gray-500">
+            Scale: ±{progress.range.toLocaleString()} miles
+          </span>
+        </div>
+        {description && (
+          <div className="text-xs text-gray-500">{description}</div>
+        )}
+        <div className={`text-sm font-semibold text-center ${balanceClass}`}>
+          {balanceLabel}
+        </div>
+        <div className="relative h-3 overflow-hidden rounded-full bg-muted">
+          <div className="absolute inset-y-0 left-1/2 w-px bg-border" />
+          {debtWidth > 0 && (
+            <div
+              className="absolute right-1/2 top-0 h-full rounded-l-full bg-red-500 transition-all duration-500"
+              style={{ width: `${debtWidth}%` }}
+            />
+          )}
+          {creditWidth > 0 && (
+            <div
+              className="absolute left-1/2 top-0 h-full rounded-r-full bg-green-500 transition-all duration-500"
+              style={{ width: `${creditWidth}%` }}
+            />
+          )}
+        </div>
+        <div className="flex justify-between text-xs text-gray-500">
+          <span className="text-red-600">Debt: {formatMiles(progress.debt)} mi</span>
+          <span className="text-green-600">Credit: {formatMiles(progress.credit)} mi</span>
+        </div>
+      </div>
+    );
   };
 
   const availableColor = getAvailabilityColor(availableMiles);
@@ -838,24 +850,6 @@ export default function MilesTracker() {
     calculateGasStats(stats);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [gasPrice, priceHistory, readings, mpg]);
-
-  // Initialize animated progress on first load
-  useEffect(() => {
-    if (readings.length > 0 && animatedProgressPercent === 0 && stats.progressPercent > 0) {
-      setAnimatedProgressPercent(stats.progressPercent);
-    }
-  }, [readings.length, stats.progressPercent, animatedProgressPercent]);
-
-  // Animate progress bar when stats change
-  useEffect(() => {
-    const newProgressPercent = stats.progressPercent;
-    if (newProgressPercent !== animatedProgressPercent && readings.length > 0 && animatedProgressPercent > 0) {
-      animateProgressBar(animatedProgressPercent, newProgressPercent);
-    } else if (readings.length === 0) {
-      setAnimatedProgressPercent(0);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [stats.progressPercent]);
 
   if (loading) {
     return (
@@ -904,42 +898,22 @@ export default function MilesTracker() {
               </span>
             </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <div className="flex justify-between text-sm">
-                <span>{stats.totalMiles.toLocaleString()} miles</span>
-                <span>{Math.round(stats.allowanceToDate).toLocaleString()} allowance</span>
+          <CardContent className="space-y-6">
+            <div className="space-y-6">
+              <div className="flex flex-wrap justify-between gap-2 text-sm text-muted-foreground">
+                <span>{stats.totalMiles.toLocaleString()} miles driven</span>
+                <span>{Math.round(stats.allowanceToDate).toLocaleString()} miles allowance to date</span>
               </div>
-              <Progress
-                value={animatedProgressPercent}
-                className={`h-3 transition-all duration-300 ${
-                  isAnimating ? 'drop-shadow-lg' : ''
-                } ${
-                  stats.allowanceColor === 'green'
-                    ? '[&>div]:bg-green-500'
-                    : stats.allowanceColor === 'orange'
-                      ? '[&>div]:bg-orange-500'
-                      : '[&>div]:bg-red-500'
-                } ${
-                  isAnimating && stats.allowanceColor === 'green'
-                    ? '[&>div]:shadow-[0_0_8px_rgba(34,197,94,0.6)]'
-                    : isAnimating && stats.allowanceColor === 'orange'
-                      ? '[&>div]:shadow-[0_0_8px_rgba(251,146,60,0.6)]'
-                      : isAnimating
-                        ? '[&>div]:shadow-[0_0_8px_rgba(239,68,68,0.6)]'
-                        : ''
-                }`}
-              />
-              <div className="flex justify-between text-xs text-gray-500">
-                <span>{Math.round(stats.progressInfo.max).toLocaleString()}</span>
-                <span>Scale: {stats.progressInfo.scale.toLocaleString()} miles</span>
-                <span>{Math.round(stats.progressInfo.min).toLocaleString()}</span>
-              </div>
-              <div className="text-center text-xs text-gray-500">
-                {stats.overUnder > 0 ? `+${Math.round(stats.overUnder)}` : Math.round(stats.overUnder)} miles vs allowance
-              </div>
+              {renderCenteredProgress('Current Balance', currentProgress)}
+              {renderCenteredProgress(
+                'Planned Trip Forecast',
+                projectedProgress,
+                futureTripMiles > 0
+                  ? `Includes ${formatMiles(futureTripMiles)} mi of planned trips`
+                  : 'No planned trips scheduled'
+              )}
             </div>
-            
+
             {stats.blendedPace && (
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pt-4 border-t">
                 <div className="text-center">
