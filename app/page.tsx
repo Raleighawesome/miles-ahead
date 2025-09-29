@@ -1,7 +1,7 @@
 import React from "react";
-import MilesTracker from "../components/MilesTracker";
+import CompensationDashboard from "@/components/CompensationDashboard";
 
 export default function Page() {
-  return <MilesTracker/>;
+  return <CompensationDashboard />;
 }
 
