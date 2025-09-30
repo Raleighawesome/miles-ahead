@@ -60,9 +60,7 @@ interface CenteredProgress {
 }
 
 const calculateCenteredProgress = (value: number): CenteredProgress => {
-  const magnitude = Math.abs(value);
-  const multiplier = magnitude === 0 ? 1 : Math.ceil(magnitude / BASE_PROGRESS_RANGE);
-  const range = Math.max(BASE_PROGRESS_RANGE, multiplier * BASE_PROGRESS_RANGE);
+  const range = BASE_PROGRESS_RANGE;
   const credit = value > 0 ? value : 0;
   const debt = value < 0 ? Math.abs(value) : 0;
 
