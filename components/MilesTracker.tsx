@@ -7,7 +7,7 @@ import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, Legend } from 'recharts';
-import { format, parseISO, differenceInDays, startOfDay, subDays } from 'date-fns';
+import { format, parseISO, differenceInDays, startOfDay, subDays, startOfWeek, addDays } from 'date-fns';
 import { Progress } from './ui/progress';
 import { env } from '../lib/env';
 import { getSupabaseClient } from '../lib/supabase';
@@ -34,6 +34,13 @@ interface MileageData {
   dailyMiles?: number;
 }
 
+interface WeeklyMileageData {
+  weekStart: number;
+  label: string;
+  miles: number;
+  allowance: number;
+}
+
 interface TripEvent {
   id: string;
   vehicle_id: string;
@@ -51,6 +58,7 @@ interface VehicleConfig {
 }
 
 const BASE_PROGRESS_RANGE = 660;
+const WEEKS_PER_PAGE = 4;
 
 interface CenteredProgress {
   delta: number;
@@ -114,6 +122,7 @@ interface RawTripEvent {
 
 export default function MilesTracker() {
   const [timeRange, setTimeRange] = useState<'week' | 'month' | 'year'>('month');
+  const [weekPage, setWeekPage] = useState(0);
   const [readings, setReadings] = useState<OdometerReading[]>([]);
   const [tripEvents, setTripEvents] = useState<TripEvent[]>([]);
   const [loading, setLoading] = useState(true);
@@ -818,6 +827,64 @@ export default function MilesTracker() {
     Math.max(0, (stats.daysIntoLease / totalLeaseDays) * 100)
   );
   const chartData = prepareChartData(timeRange);
+  const weeklyTrend = React.useMemo<WeeklyMileageData[]>(() => {
+    if (readings.length < 2) return [] as WeeklyMileageData[];
+
+    const sortedReadings = [...readings].sort(
+      (a, b) => new Date(a.reading_date).getTime() - new Date(b.reading_date).getTime()
+    );
+    const dailyAllowance = vehicleConfig.annualAllowance / 365.25;
+    const weekMap = new Map<number, { start: Date; miles: number }>();
+
+    for (let i = 1; i < sortedReadings.length; i += 1) {
+      const previous = sortedReadings[i - 1];
+      const current = sortedReadings[i];
+      const delta = current.reading_miles - previous.reading_miles;
+      if (!Number.isFinite(delta) || delta <= 0) continue;
+
+      const currentDate = parseISO(current.reading_date);
+      const weekStart = startOfWeek(currentDate, { weekStartsOn: 0 });
+      const key = weekStart.getTime();
+      if (!weekMap.has(key)) {
+        weekMap.set(key, { start: weekStart, miles: 0 });
+      }
+      const entry = weekMap.get(key);
+      if (entry) {
+        entry.miles += delta;
+      }
+    }
+
+    return Array.from(weekMap.values())
+      .sort((a, b) => a.start.getTime() - b.start.getTime())
+      .map(({ start, miles }) => {
+        const weekEnd = addDays(start, 6);
+        return {
+          weekStart: start.getTime(),
+          label: `${format(start, 'MMM d')} - ${format(weekEnd, 'MMM d')}`,
+          miles,
+          allowance: dailyAllowance * 7
+        };
+      });
+  }, [readings, vehicleConfig.annualAllowance]);
+  const totalWeeklyPages = Math.ceil(weeklyTrend.length / WEEKS_PER_PAGE);
+
+  useEffect(() => {
+    const maxPage = Math.max(0, Math.ceil(weeklyTrend.length / WEEKS_PER_PAGE) - 1);
+    if (weekPage > maxPage) {
+      setWeekPage(maxPage);
+    }
+  }, [weekPage, weeklyTrend.length]);
+
+  const visibleWeeklyData = React.useMemo(() => {
+    if (weeklyTrend.length === 0) return [];
+    const total = weeklyTrend.length;
+    const start = Math.max(0, total - (weekPage + 1) * WEEKS_PER_PAGE);
+    const end = Math.max(start, total - weekPage * WEEKS_PER_PAGE);
+    return weeklyTrend.slice(start, end);
+  }, [weekPage, weeklyTrend]);
+
+  const canGoToPreviousWeeks = weekPage < Math.max(0, totalWeeklyPages - 1);
+  const canGoToNextWeeks = weekPage > 0;
   const forecastData = prepareForecastData();
   const lineDomain = React.useMemo(() => {
     if (!chartData.length) return undefined;
@@ -1072,6 +1139,78 @@ export default function MilesTracker() {
               ) : (
                 <div className="h-80 flex items-center justify-center text-gray-500">
                   No mileage data available. Add your first odometer reading to get started!
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <CardTitle>Weekly Mileage Trend</CardTitle>
+              {weeklyTrend.length > 0 && (
+                <div className="flex flex-wrap items-center gap-2">
+                  <div className="text-xs text-muted-foreground sm:text-sm">
+                    Page {Math.min(weekPage + 1, Math.max(totalWeeklyPages, 1))} of {Math.max(totalWeeklyPages, 1)}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setWeekPage(prev => Math.min(prev + 1, Math.max(totalWeeklyPages - 1, 0)))}
+                      disabled={!canGoToPreviousWeeks}
+                    >
+                      Previous 4 Weeks
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setWeekPage(prev => Math.max(prev - 1, 0))}
+                      disabled={!canGoToNextWeeks}
+                    >
+                      Next 4 Weeks
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </CardHeader>
+            <CardContent>
+              {visibleWeeklyData.length > 0 ? (
+                <div className="h-80">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <LineChart data={visibleWeeklyData}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#1f2937" />
+                      <XAxis dataKey="label" stroke="#94a3b8" tick={{ fill: '#94a3b8' }} />
+                      <YAxis stroke="#94a3b8" tick={{ fill: '#94a3b8' }} />
+                      <Tooltip
+                        formatter={(value: number, name: string) => [
+                          `${Math.round(value).toLocaleString()} miles`,
+                          name === 'allowance' ? 'Weekly Allowance' : 'Actual Miles'
+                        ]}
+                      />
+                      <Legend />
+                      <Line
+                        type="monotone"
+                        dataKey="miles"
+                        stroke="#34d399"
+                        strokeWidth={2}
+                        dot
+                        name="Actual Miles"
+                      />
+                      <Line
+                        type="monotone"
+                        dataKey="allowance"
+                        stroke="#fb923c"
+                        strokeWidth={2}
+                        strokeDasharray="5 5"
+                        dot={false}
+                        name="Weekly Allowance"
+                      />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </div>
+              ) : (
+                <div className="h-80 flex items-center justify-center text-gray-500">
+                  Not enough mileage data to calculate week-over-week trends.
                 </div>
               )}
             </CardContent>
