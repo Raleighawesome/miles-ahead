@@ -1182,9 +1182,9 @@ export default function MilesTracker() {
                       <XAxis dataKey="label" stroke="#94a3b8" tick={{ fill: '#94a3b8' }} />
                       <YAxis stroke="#94a3b8" tick={{ fill: '#94a3b8' }} />
                       <Tooltip
-                        formatter={(value: number, name: string) => [
+                        formatter={(value: number, _name: string, info: any) => [
                           `${Math.round(value).toLocaleString()} miles`,
-                          name === 'allowance' ? 'Weekly Allowance' : 'Actual Miles'
+                          info?.dataKey === 'allowance' ? 'Weekly Allowance' : 'Actual Miles'
                         ]}
                       />
                       <Legend />
