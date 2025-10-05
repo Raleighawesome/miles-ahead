@@ -7,6 +7,7 @@ import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, Legend } from 'recharts';
+import type { Payload } from 'recharts/types/component/DefaultTooltipContent';
 import { format, parseISO, differenceInDays, startOfDay, subDays, startOfWeek, addDays } from 'date-fns';
 import { Progress } from './ui/progress';
 import { env } from '../lib/env';
@@ -886,6 +887,49 @@ export default function MilesTracker() {
   const canGoToPreviousWeeks = weekPage < Math.max(0, totalWeeklyPages - 1);
   const canGoToNextWeeks = weekPage > 0;
   const forecastData = prepareForecastData();
+  const weeklyProjectionData = React.useMemo(() => {
+    if (weeklyTrend.length < 2) return [] as Array<{
+      weekStart: number;
+      label: string;
+      actual: number | null;
+      projected: number | null;
+    }>;
+
+    const sorted = [...weeklyTrend].sort((a, b) => a.weekStart - b.weekStart);
+    const n = sorted.length;
+    const indices = sorted.map((_, index) => index);
+    const sumX = indices.reduce((acc, value) => acc + value, 0);
+    const sumY = sorted.reduce((acc, value) => acc + value.miles, 0);
+    const sumXY = sorted.reduce((acc, value, index) => acc + index * value.miles, 0);
+    const sumX2 = indices.reduce((acc, value) => acc + value * value, 0);
+    const denominator = n * sumX2 - sumX * sumX;
+    if (denominator === 0) return [] as Array<{ weekStart: number; label: string; actual: number | null; projected: number | null }>;
+
+    const slope = (n * sumXY - sumX * sumY) / denominator;
+    const intercept = (sumY - slope * sumX) / n;
+
+    const results: Array<{ weekStart: number; label: string; actual: number | null; projected: number | null }> = sorted.map((week, index) => ({
+      weekStart: week.weekStart,
+      label: week.label,
+      actual: week.miles,
+      projected: index === n - 1 ? Math.max(0, intercept + slope * index) : null
+    }));
+
+    const lastWeekStartDate = new Date(sorted[n - 1].weekStart);
+    for (let i = 1; i <= 4; i += 1) {
+      const projectionIndex = n - 1 + i;
+      const projectedWeekStart = addDays(lastWeekStartDate, i * 7);
+      const projectedWeekEnd = addDays(projectedWeekStart, 6);
+      results.push({
+        weekStart: projectedWeekStart.getTime(),
+        label: `${format(projectedWeekStart, 'MMM d')} - ${format(projectedWeekEnd, 'MMM d')}`,
+        actual: null,
+        projected: Math.max(0, intercept + slope * projectionIndex)
+      });
+    }
+
+    return results;
+  }, [weeklyTrend]);
   const lineDomain = React.useMemo(() => {
     if (!chartData.length) return undefined;
     const last = chartData[chartData.length - 1];
@@ -1182,7 +1226,7 @@ export default function MilesTracker() {
                       <XAxis dataKey="label" stroke="#94a3b8" tick={{ fill: '#94a3b8' }} />
                       <YAxis stroke="#94a3b8" tick={{ fill: '#94a3b8' }} />
                       <Tooltip
-                        formatter={(value: number, _name: string, info: any) => [
+                        formatter={(value: number, _name: string, info?: Payload<number, string>) => [
                           `${Math.round(value).toLocaleString()} miles`,
                           info?.dataKey === 'allowance' ? 'Weekly Allowance' : 'Actual Miles'
                         ]}
@@ -1213,11 +1257,62 @@ export default function MilesTracker() {
                   Not enough mileage data to calculate week-over-week trends.
                 </div>
               )}
-            </CardContent>
-          </Card>
+          </CardContent>
+        </Card>
 
-          {forecastData.length > 0 && (
-            <Card>
+        <Card>
+          <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <CardTitle>Projected Weekly Mileage</CardTitle>
+            <div className="text-xs text-muted-foreground sm:text-sm">
+              Linear projection for the next 4 weeks based on historical weekly mileage.
+            </div>
+          </CardHeader>
+          <CardContent>
+            {weeklyProjectionData.length > 0 ? (
+              <div className="h-80">
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={weeklyProjectionData}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#1f2937" />
+                    <XAxis dataKey="label" stroke="#94a3b8" tick={{ fill: '#94a3b8' }} interval={0} angle={-20} textAnchor="end" height={80} />
+                    <YAxis stroke="#94a3b8" tick={{ fill: '#94a3b8' }} />
+                    <Tooltip
+                      formatter={(value: number | null, name: string, info?: Payload<number, string>) => {
+                        if (value === null || value === undefined) return ['', name];
+                        const label = info?.dataKey === 'projected' ? 'Projected Miles' : 'Actual Miles';
+                        return [`${Math.round(value).toLocaleString()} miles`, label];
+                      }}
+                    />
+                    <Legend />
+                    <Line
+                      type="monotone"
+                      dataKey="actual"
+                      stroke="#34d399"
+                      strokeWidth={2}
+                      dot
+                      name="Actual Miles"
+                    />
+                    <Line
+                      type="monotone"
+                      dataKey="projected"
+                      stroke="#6366f1"
+                      strokeWidth={2}
+                      strokeDasharray="6 4"
+                      dot={{ r: 4 }}
+                      name="Projected Miles"
+                    />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+            ) : (
+              <div className="h-80 flex items-center justify-center text-gray-500 text-center">
+                Not enough weekly data to generate a projection. Add more odometer readings to see the forecast.
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {forecastData.length > 0 && (
+          <Card>
               <CardHeader>
                 <CardTitle>Mileage Forecast</CardTitle>
               </CardHeader>
