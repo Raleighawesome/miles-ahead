@@ -7,7 +7,7 @@ import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, Legend } from 'recharts';
-import type { Payload } from 'recharts/types/component/DefaultTooltipContent';
+import type { Payload, ValueType } from 'recharts/types/component/DefaultTooltipContent';
 import { format, parseISO, differenceInDays, startOfDay, subDays, startOfWeek, addDays } from 'date-fns';
 import { Progress } from './ui/progress';
 import { env } from '../lib/env';
@@ -40,6 +40,12 @@ interface WeeklyMileageData {
   label: string;
   miles: number;
   allowance: number;
+}
+
+interface WeeklyProjectionPoint {
+  weekStart: number;
+  label: string;
+  projected: number;
 }
 
 interface TripEvent {
@@ -887,48 +893,51 @@ export default function MilesTracker() {
   const canGoToPreviousWeeks = weekPage < Math.max(0, totalWeeklyPages - 1);
   const canGoToNextWeeks = weekPage > 0;
   const forecastData = prepareForecastData();
-  const weeklyProjectionData = React.useMemo(() => {
-    if (weeklyTrend.length < 2) return [] as Array<{
-      weekStart: number;
-      label: string;
-      actual: number | null;
-      projected: number | null;
-    }>;
-
-    const sorted = [...weeklyTrend].sort((a, b) => a.weekStart - b.weekStart);
-    const n = sorted.length;
-    const indices = sorted.map((_, index) => index);
-    const sumX = indices.reduce((acc, value) => acc + value, 0);
-    const sumY = sorted.reduce((acc, value) => acc + value.miles, 0);
-    const sumXY = sorted.reduce((acc, value, index) => acc + index * value.miles, 0);
-    const sumX2 = indices.reduce((acc, value) => acc + value * value, 0);
-    const denominator = n * sumX2 - sumX * sumX;
-    if (denominator === 0) return [] as Array<{ weekStart: number; label: string; actual: number | null; projected: number | null }>;
-
-    const slope = (n * sumXY - sumX * sumY) / denominator;
-    const intercept = (sumY - slope * sumX) / n;
-
-    const results: Array<{ weekStart: number; label: string; actual: number | null; projected: number | null }> = sorted.map((week, index) => ({
-      weekStart: week.weekStart,
-      label: week.label,
-      actual: week.miles,
-      projected: index === n - 1 ? Math.max(0, intercept + slope * index) : null
-    }));
-
-    const lastWeekStartDate = new Date(sorted[n - 1].weekStart);
-    for (let i = 1; i <= 4; i += 1) {
-      const projectionIndex = n - 1 + i;
-      const projectedWeekStart = addDays(lastWeekStartDate, i * 7);
-      const projectedWeekEnd = addDays(projectedWeekStart, 6);
-      results.push({
-        weekStart: projectedWeekStart.getTime(),
-        label: `${format(projectedWeekStart, 'MMM d')} - ${format(projectedWeekEnd, 'MMM d')}`,
-        actual: null,
-        projected: Math.max(0, intercept + slope * projectionIndex)
-      });
+  const weeklyProjectionData = React.useMemo<WeeklyProjectionPoint[]>(() => {
+    if (weeklyTrend.length === 0) {
+      return [];
     }
 
-    return results;
+    const sorted = [...weeklyTrend].sort((a, b) => a.weekStart - b.weekStart);
+    const recentWeeks = sorted.slice(-4);
+
+    if (recentWeeks.length === 0) {
+      return [];
+    }
+
+    const averageMiles = recentWeeks.reduce((acc, week) => acc + week.miles, 0) / recentWeeks.length;
+
+    let slope = 0;
+    let intercept = averageMiles;
+
+    if (recentWeeks.length >= 2) {
+      const indices = recentWeeks.map((_, index) => index);
+      const sumX = indices.reduce((acc, value) => acc + value, 0);
+      const sumY = recentWeeks.reduce((acc, value) => acc + value.miles, 0);
+      const sumXY = recentWeeks.reduce((acc, value, index) => acc + index * value.miles, 0);
+      const sumX2 = indices.reduce((acc, value) => acc + value * value, 0);
+      const denominator = recentWeeks.length * sumX2 - sumX * sumX;
+
+      if (denominator !== 0) {
+        slope = (recentWeeks.length * sumXY - sumX * sumY) / denominator;
+        intercept = (sumY - slope * sumX) / recentWeeks.length;
+      }
+    }
+
+    const lastWeekStartDate = new Date(sorted[sorted.length - 1].weekStart);
+
+    return Array.from({ length: 4 }, (_, index) => {
+      const projectionIndex = recentWeeks.length + index;
+      const projectedWeekStart = addDays(lastWeekStartDate, (index + 1) * 7);
+      const projectedWeekEnd = addDays(projectedWeekStart, 6);
+      const projectedMiles = Math.max(0, intercept + slope * projectionIndex);
+
+      return {
+        weekStart: projectedWeekStart.getTime(),
+        label: `${format(projectedWeekStart, 'MMM d')} - ${format(projectedWeekEnd, 'MMM d')}`,
+        projected: projectedMiles
+      };
+    });
   }, [weeklyTrend]);
   const lineDomain = React.useMemo(() => {
     if (!chartData.length) return undefined;
@@ -1264,7 +1273,7 @@ export default function MilesTracker() {
           <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <CardTitle>Projected Weekly Mileage</CardTitle>
             <div className="text-xs text-muted-foreground sm:text-sm">
-              Linear projection for the next 4 weeks based on historical weekly mileage.
+              Projection for the next 4 weeks using the most recent 4 weeks of mileage data.
             </div>
           </CardHeader>
           <CardContent>
@@ -1276,21 +1285,15 @@ export default function MilesTracker() {
                     <XAxis dataKey="label" stroke="#94a3b8" tick={{ fill: '#94a3b8' }} interval={0} angle={-20} textAnchor="end" height={80} />
                     <YAxis stroke="#94a3b8" tick={{ fill: '#94a3b8' }} />
                     <Tooltip
-                      formatter={(value: number | null, name: string, info?: Payload<number, string>) => {
-                        if (value === null || value === undefined) return ['', name];
-                        const label = info?.dataKey === 'projected' ? 'Projected Miles' : 'Actual Miles';
-                        return [`${Math.round(value).toLocaleString()} miles`, label];
+                      formatter={(value: ValueType) => {
+                        if (typeof value !== 'number') {
+                          return ['', 'Projected Miles'];
+                        }
+
+                        return [`${Math.round(value).toLocaleString()} miles`, 'Projected Miles'];
                       }}
                     />
                     <Legend />
-                    <Line
-                      type="monotone"
-                      dataKey="actual"
-                      stroke="#34d399"
-                      strokeWidth={2}
-                      dot
-                      name="Actual Miles"
-                    />
                     <Line
                       type="monotone"
                       dataKey="projected"
