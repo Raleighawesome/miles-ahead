@@ -7,7 +7,7 @@ import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, Legend } from 'recharts';
-import type { Payload } from 'recharts/types/component/DefaultTooltipContent';
+import type { Payload, ValueType } from 'recharts/types/component/DefaultTooltipContent';
 import { format, parseISO, differenceInDays, startOfDay, subDays, startOfWeek, addDays } from 'date-fns';
 import { Progress } from './ui/progress';
 import { env } from '../lib/env';
@@ -1285,8 +1285,10 @@ export default function MilesTracker() {
                     <XAxis dataKey="label" stroke="#94a3b8" tick={{ fill: '#94a3b8' }} interval={0} angle={-20} textAnchor="end" height={80} />
                     <YAxis stroke="#94a3b8" tick={{ fill: '#94a3b8' }} />
                     <Tooltip
-                      formatter={(value: number | null) => {
-                        if (value === null || value === undefined) return ['', 'Projected Miles'];
+                      formatter={(value: ValueType) => {
+                        if (typeof value !== 'number') {
+                          return ['', 'Projected Miles'];
+                        }
                         return [`${Math.round(value).toLocaleString()} miles`, 'Projected Miles'];
                       }}
                     />
