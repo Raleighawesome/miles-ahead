@@ -963,6 +963,39 @@ export default function MilesTracker() {
     { label: 'Month', spent: gasStats.spentMonth, forecast: gasStats.forecastMonth },
     { label: 'Quarter', spent: gasStats.spentQuarter, forecast: gasStats.forecastQuarter }
   ];
+  const gasPriceTrend = React.useMemo(() => {
+    if (!priceHistory.length) {
+      return [];
+    }
+
+    const cutoff = subDays(new Date(), 30);
+    const dailyBuckets = new Map<string, { date: Date; total: number; count: number }>();
+
+    priceHistory.forEach((entry) => {
+      const recordedAt = new Date(entry.recorded_at);
+
+      if (recordedAt < cutoff) {
+        return;
+      }
+
+      const key = format(recordedAt, 'yyyy-MM-dd');
+      const bucket = dailyBuckets.get(key);
+
+      if (bucket) {
+        bucket.total += entry.price;
+        bucket.count += 1;
+      } else {
+        dailyBuckets.set(key, { date: recordedAt, total: entry.price, count: 1 });
+      }
+    });
+
+    return Array.from(dailyBuckets.entries())
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([, bucket]) => ({
+        label: format(bucket.date, 'MMM d'),
+        price: bucket.total / bucket.count
+      }));
+  }, [priceHistory]);
 
   useEffect(() => {
     calculateGasStats(stats);
@@ -1592,6 +1625,30 @@ export default function MilesTracker() {
               <div className="text-lg font-semibold">${gasStats.forecastQuarter.toFixed(2)}</div>
               <div className="text-xs text-gray-500">Forecast next quarter</div>
             </div>
+          </div>
+          <div className="mb-6 h-40">
+            {gasPriceTrend.length > 0 ? (
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={gasPriceTrend} margin={{ top: 10, right: 20, bottom: 0, left: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="label" minTickGap={16} />
+                  <YAxis
+                    width={40}
+                    domain={["dataMin", "dataMax"]}
+                    tickFormatter={(value) => `$${(value as number).toFixed(2)}`}
+                  />
+                  <Tooltip
+                    formatter={(value: number | string) => [`$${Number(value).toFixed(2)}`, 'Price']}
+                    labelFormatter={(label) => `Recorded ${label}`}
+                  />
+                  <Line type="monotone" dataKey="price" stroke="#2563eb" strokeWidth={2} dot={false} />
+                </LineChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="flex h-full items-center justify-center text-sm text-gray-500">
+                No gas price data for the past month.
+              </div>
+            )}
           </div>
           <ResponsiveContainer width="100%" height={200}>
             <BarChart data={gasChartData}>
