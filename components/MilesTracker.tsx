@@ -1289,7 +1289,6 @@ export default function MilesTracker() {
                         if (typeof value !== 'number') {
                           return ['', 'Projected Miles'];
                         }
-
                         return [`${Math.round(value).toLocaleString()} miles`, 'Projected Miles'];
                       }}
                     />
