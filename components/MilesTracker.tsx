@@ -1630,7 +1630,6 @@ export default function MilesTracker() {
             {gasPriceTrend.length > 0 ? (
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={gasPriceTrend} margin={{ top: 10, right: 20, bottom: 0, left: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" />
                   <XAxis dataKey="label" minTickGap={16} />
                   <YAxis
                     width={40}
