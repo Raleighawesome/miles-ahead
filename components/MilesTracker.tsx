@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
-import { Card, CardHeader, CardTitle, CardContent } from './ui/card';
+import { Card, CardHeader, CardTitle, CardContent, CardDescription } from './ui/card';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
@@ -651,20 +651,6 @@ export default function MilesTracker() {
     });
   };
 
-  const prepareForecastData = () => {
-    if (!stats.blendedPace) return [];
-    const horizons = [
-      { label: '1M', days: 30 },
-      { label: '3M', days: 90 },
-      { label: '6M', days: 182 },
-      { label: '1Y', days: 365 }
-    ];
-    return horizons.map(h => {
-      const projected = stats.currentMiles + stats.blendedPace!.blendedPace * h.days;
-      const allowance = stats.dailyAllowance * (stats.daysIntoLease + h.days);
-      return { horizon: h.label, projected, allowance };
-    });
-  };
 
   interface StatsObject {
     currentMiles: number;
@@ -892,7 +878,6 @@ export default function MilesTracker() {
 
   const canGoToPreviousWeeks = weekPage < Math.max(0, totalWeeklyPages - 1);
   const canGoToNextWeeks = weekPage > 0;
-  const forecastData = prepareForecastData();
   const weeklyProjectionData = React.useMemo<WeeklyProjectionPoint[]>(() => {
     if (weeklyTrend.length === 0) {
       return [];
@@ -946,18 +931,6 @@ export default function MilesTracker() {
     const maxVal = Math.max(last.miles, last.allowance) + 1000;
     return [minVal, maxVal] as [number, number];
   }, [chartData]);
-  const forecastDomain = React.useMemo(() => {
-    if (!forecastData.length) return undefined;
-    interface ForecastDataItem {
-      horizon: string;
-      projected: number;
-      allowance: number;
-    }
-    const last = forecastData[forecastData.length - 1] as ForecastDataItem;
-    const minVal = Math.max(0, Math.min(last.projected ?? 0, last.allowance ?? 0) - 1000);
-    const maxVal = Math.max(last.projected ?? 0, last.allowance ?? 0) + 1000;
-    return [minVal, maxVal] as [number, number];
-  }, [forecastData]);
   const gasChartData = [
     { label: 'Week', spent: gasStats.spentWeek, forecast: gasStats.forecastWeek },
     { label: 'Month', spent: gasStats.spentMonth, forecast: gasStats.forecastMonth },
@@ -1002,6 +975,7 @@ export default function MilesTracker() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [gasPrice, priceHistory, readings, mpg]);
 
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -1010,691 +984,672 @@ export default function MilesTracker() {
     );
   }
 
+  const hasReadings = readings.length > 0;
+  const alertKey = (['green', 'yellow', 'orange', 'red'].includes(stats.alertLevel)
+    ? stats.alertLevel
+    : 'green') as 'green' | 'yellow' | 'orange' | 'red';
+
+  const alertStyles: Record<
+    'green' | 'yellow' | 'orange' | 'red',
+    { label: string; description: string; chipClass: string; accentClass: string }
+  > = {
+    green: {
+      label: 'On Track',
+      description: 'Your mileage is pacing comfortably within your allowance.',
+      chipClass: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-300',
+      accentClass: 'from-emerald-400/40 to-transparent'
+    },
+    yellow: {
+      label: 'Slightly Over',
+      description: 'You are nudging past the allowance—consider easing mileage soon.',
+      chipClass: 'bg-amber-400/20 text-amber-600 dark:text-amber-300',
+      accentClass: 'from-amber-300/40 to-transparent'
+    },
+    orange: {
+      label: 'Warning',
+      description: 'Mileage pace is trending high. Plan a lighter driving stretch.',
+      chipClass: 'bg-orange-400/20 text-orange-600 dark:text-orange-300',
+      accentClass: 'from-orange-400/40 to-transparent'
+    },
+    red: {
+      label: 'Over Limit',
+      description: 'You are tracking over the allowance. Adjust upcoming trips to recover.',
+      chipClass: 'bg-rose-500/10 text-rose-600 dark:text-rose-300',
+      accentClass: 'from-rose-400/40 to-transparent'
+    }
+  };
+
+  const statusTokens = alertStyles[alertKey];
+
   return (
-    <div className="container mx-auto p-6 space-y-6">
-      {/* Header */}
-      <div className="mb-8">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="hidden md:block text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-400 via-indigo-300 to-purple-300">
-              Miles Ahead 🚗💎
-            </h1>
-            <p className="hidden md:block text-muted-foreground mt-2">
-              Stay miles ahead of your lease allowance with smart vehicle mileage tracking
-            </p>
-          </div>
-          <div className="flex items-center gap-2">
-            <Button asChild variant="outline"><Link href="/settings">Settings</Link></Button>
-            <ThemeToggle />
-          </div>
-        </div>
-      </div>
-
-      {/* 1. Mileage Progress */}
-      {readings.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center justify-between">
-              <span>Mileage Progress</span>
-              <span className={`text-sm font-medium px-2 py-1 rounded ${
-                stats.alertLevel === 'green' ? 'bg-green-100 text-green-800' :
-                stats.alertLevel === 'yellow' ? 'bg-yellow-100 text-yellow-800' :
-                stats.alertLevel === 'orange' ? 'bg-orange-100 text-orange-800' :
-                'bg-red-100 text-red-800'
-              }`}>
-                {stats.alertLevel === 'green' ? 'On Track' :
-                 stats.alertLevel === 'yellow' ? 'Slightly Over' :
-                 stats.alertLevel === 'orange' ? 'Warning' :
-                 'Over Limit'}
-              </span>
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            <div className="space-y-6">
-              <div className="flex flex-wrap justify-between gap-2 text-sm text-muted-foreground">
-                <span>{stats.totalMiles.toLocaleString()} miles driven</span>
-                <span>{Math.round(stats.allowanceToDate).toLocaleString()} miles allowance to date</span>
-              </div>
-              {renderCenteredProgress('Current Balance', currentProgress)}
-              {renderCenteredProgress(
-                'Planned Trip Forecast',
-                projectedProgress,
-                futureTripMiles > 0
-                  ? `Includes ${formatMiles(futureTripMiles)} mi of planned trips`
-                  : 'No planned trips scheduled'
-              )}
+    <div className="min-h-screen bg-gradient-to-b from-slate-50 via-white to-slate-100 dark:from-slate-950 dark:via-slate-950 dark:to-black">
+      <div className="mx-auto flex max-w-6xl flex-col gap-12 px-4 pb-16 pt-12 sm:px-6 lg:px-8">
+        <header className="flex flex-col gap-6">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-500 dark:text-slate-400">Miles Ahead</p>
+              <h1 className="text-3xl font-semibold text-slate-900 dark:text-white sm:text-4xl">Mileage Command Center</h1>
+              <p className="mt-3 max-w-xl text-sm text-muted-foreground">
+                A calm overview of your driving life—snapshot summaries, forecasts, and planning in one place.
+              </p>
             </div>
-
-            {stats.blendedPace && (
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pt-4 border-t">
-                <div className="text-center">
-                  <div className="text-lg font-semibold">{stats.todaysMiles.toLocaleString()}</div>
-                  <div className="text-xs text-gray-500">Today&apos;s Miles</div>
-                </div>
-                <div className="text-center">
-                  <div className="text-lg font-semibold">{stats.blendedPace.thirtyDayPace.toFixed(1)}</div>
-                  <div className="text-xs text-gray-500">30-Day Pace</div>
-                </div>
-                <div className="text-center">
-                  <div className="text-lg font-semibold">{stats.blendedPace.ninetyDayPace.toFixed(1)}</div>
-                  <div className="text-xs text-gray-500">90-Day Pace</div>
-                </div>
-                <div className="text-center">
-                  <div className="text-lg font-semibold">{stats.blendedPace.lifetimePace.toFixed(1)}</div>
-                  <div className="text-xs text-gray-500">Lifetime Pace</div>
-                </div>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Over/Under Allowance and Total Miles Cards */}
-      {readings.length > 0 && (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium">Available</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-2">
-                <div className={`text-2xl font-bold ${availableColor}`}>
-                  {formatMiles(availableMiles)}
-                </div>
-                <div className="text-xs text-gray-500">Planned trip forecast</div>
-                <div className={`text-sm font-medium ${projectedAvailableColor}`}>
-                  {formatMiles(projectedAvailableMiles)} projected
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-          
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium">Total Miles Driven</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{stats.totalMiles.toLocaleString()}</div>
-            </CardContent>
-          </Card>
-        </div>
-      )}
-
-      {/* 2. Mileage Tracking Chart with Tabs */}
-      <Tabs defaultValue="dashboard" className="space-y-4">
-        <TabsList className="grid w-full grid-cols-3">
-          <TabsTrigger value="dashboard">Dashboard</TabsTrigger>
-          <TabsTrigger value="trips">Plan Trips</TabsTrigger>
-          <TabsTrigger value="history">History</TabsTrigger>
-        </TabsList>
-
-        {/* Dashboard Tab */}
-        <TabsContent value="dashboard" className="space-y-4">
-          <Card>
-            <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
-              <CardTitle>Mileage Tracking Chart</CardTitle>
-              <div className="flex bg-gray-100 dark:bg-gray-800 rounded-lg p-1 mt-3 sm:mt-0">
-                <button
-                  onClick={() => setTimeRange('week')}
-                  className={`px-2 sm:px-3 py-1 sm:py-1.5 text-xs sm:text-sm font-medium rounded-md transition-all duration-200 ${
-                    timeRange === 'week'
-                      ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm'
-                      : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
-                  }`}
-                >
-                  Week
-                </button>
-                <button
-                  onClick={() => setTimeRange('month')}
-                  className={`px-2 sm:px-3 py-1 sm:py-1.5 text-xs sm:text-sm font-medium rounded-md transition-all duration-200 ${
-                    timeRange === 'month'
-                      ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm'
-                      : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
-                  }`}
-                >
-                  Month
-                </button>
-                <button
-                  onClick={() => setTimeRange('year')}
-                  className={`px-2 sm:px-3 py-1 sm:py-1.5 text-xs sm:text-sm font-medium rounded-md transition-all duration-200 ${
-                    timeRange === 'year'
-                      ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm'
-                      : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
-                  }`}
-                >
-                  Year
-                </button>
-              </div>
-            </CardHeader>
-            <CardContent>
-              {chartData.length > 0 ? (
-                <div className="h-80">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={chartData}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#1f2937" />
-                      <XAxis
-                        dataKey="date"
-                        type="number"
-                        domain={['dataMin', 'dataMax']}
-                        scale="time"
-                        stroke="#94a3b8"
-                        tick={{ fill: '#94a3b8' }}
-                        tickFormatter={(value: number) => {
-                          const date = new Date(value);
-                          return timeRange === 'year'
-                            ? format(date, 'MMM yy')
-                            : format(date, 'MMM dd');
-                        }}
-                        allowDuplicatedCategory={false}
-                      />
-                      <YAxis stroke="#94a3b8" tick={{ fill: '#94a3b8' }} domain={lineDomain as [number, number] | undefined} />
-                      <Tooltip
-                        labelFormatter={(value: number, payload) => {
-                          const fromPayload = payload?.[0]?.payload?.label;
-                          if (fromPayload) return fromPayload;
-                          const date = new Date(value);
-                          return timeRange === 'year'
-                            ? format(date, 'MMM dd, yyyy')
-                            : format(date, 'MMM dd');
-                        }}
-                        formatter={(value: number, name: string) => [
-                          `${Math.round(value).toLocaleString()} miles`,
-                          name
-                        ]}
-                      />
-                      <Line
-                        type="monotone"
-                        dataKey="miles"
-                        stroke="#60a5fa"
-                        strokeWidth={2}
-                        dot={false}
-                        name="Actual Miles"
-                      />
-                      <Line
-                        type="monotone"
-                        dataKey="allowance"
-                        stroke="#fb923c"
-                        strokeWidth={2}
-                        strokeDasharray="5 5"
-                        dot={false}
-                        name="Allowance"
-                      />
-                    </LineChart>
-                  </ResponsiveContainer>
-                </div>
-              ) : (
-                <div className="h-80 flex items-center justify-center text-gray-500">
-                  No mileage data available. Add your first odometer reading to get started!
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <CardTitle>Weekly Mileage Trend</CardTitle>
-              {weeklyTrend.length > 0 && (
-                <div className="flex flex-wrap items-center gap-2">
-                  <div className="text-xs text-muted-foreground sm:text-sm">
-                    Page {Math.min(weekPage + 1, Math.max(totalWeeklyPages, 1))} of {Math.max(totalWeeklyPages, 1)}
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setWeekPage(prev => Math.min(prev + 1, Math.max(totalWeeklyPages - 1, 0)))}
-                      disabled={!canGoToPreviousWeeks}
-                    >
-                      Previous 4 Weeks
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setWeekPage(prev => Math.max(prev - 1, 0))}
-                      disabled={!canGoToNextWeeks}
-                    >
-                      Next 4 Weeks
-                    </Button>
-                  </div>
-                </div>
-              )}
-            </CardHeader>
-            <CardContent>
-              {visibleWeeklyData.length > 0 ? (
-                <div className="h-80">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={visibleWeeklyData}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#1f2937" />
-                      <XAxis dataKey="label" stroke="#94a3b8" tick={{ fill: '#94a3b8' }} />
-                      <YAxis stroke="#94a3b8" tick={{ fill: '#94a3b8' }} />
-                      <Tooltip
-                        formatter={(value: number, _name: string, info?: Payload<number, string>) => [
-                          `${Math.round(value).toLocaleString()} miles`,
-                          info?.dataKey === 'allowance' ? 'Weekly Allowance' : 'Actual Miles'
-                        ]}
-                      />
-                      <Legend />
-                      <Line
-                        type="monotone"
-                        dataKey="miles"
-                        stroke="#34d399"
-                        strokeWidth={2}
-                        dot
-                        name="Actual Miles"
-                      />
-                      <Line
-                        type="monotone"
-                        dataKey="allowance"
-                        stroke="#fb923c"
-                        strokeWidth={2}
-                        strokeDasharray="5 5"
-                        dot={false}
-                        name="Weekly Allowance"
-                      />
-                    </LineChart>
-                  </ResponsiveContainer>
-                </div>
-              ) : (
-                <div className="h-80 flex items-center justify-center text-gray-500">
-                  Not enough mileage data to calculate week-over-week trends.
-                </div>
-              )}
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <CardTitle>Projected Weekly Mileage</CardTitle>
-            <div className="text-xs text-muted-foreground sm:text-sm">
-              Projection for the next 4 weeks using the most recent 4 weeks of mileage data.
+            <div className="flex items-center gap-3 self-start">
+              <Button asChild variant="outline" className="rounded-full px-5">
+                <Link href="/settings">Settings</Link>
+              </Button>
+              <ThemeToggle />
             </div>
-          </CardHeader>
-          <CardContent>
-            {weeklyProjectionData.length > 0 ? (
-              <div className="h-80">
-                <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={weeklyProjectionData}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#1f2937" />
-                    <XAxis dataKey="label" stroke="#94a3b8" tick={{ fill: '#94a3b8' }} interval={0} angle={-20} textAnchor="end" height={80} />
-                    <YAxis stroke="#94a3b8" tick={{ fill: '#94a3b8' }} />
-                    <Tooltip
-                      formatter={(value: ValueType) => {
-                        if (typeof value !== 'number') {
-                          return ['', 'Projected Miles'];
-                        }
-                        return [`${Math.round(value).toLocaleString()} miles`, 'Projected Miles'];
-                      }}
-                    />
-                    <Legend />
-                    <Line
-                      type="monotone"
-                      dataKey="projected"
-                      stroke="#6366f1"
-                      strokeWidth={2}
-                      strokeDasharray="6 4"
-                      dot={{ r: 4 }}
-                      name="Projected Miles"
-                    />
-                  </LineChart>
-                </ResponsiveContainer>
-              </div>
-            ) : (
-              <div className="h-80 flex items-center justify-center text-gray-500 text-center">
-                Not enough weekly data to generate a projection. Add more odometer readings to see the forecast.
-              </div>
-            )}
-          </CardContent>
-        </Card>
+          </div>
 
-        {forecastData.length > 0 && (
-          <Card>
-              <CardHeader>
-                <CardTitle>Mileage Forecast</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="h-80">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={forecastData}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#1f2937" />
-                      <XAxis dataKey="horizon" stroke="#94a3b8" tick={{ fill: '#94a3b8' }} />
-                      <YAxis stroke="#94a3b8" tick={{ fill: '#94a3b8' }} domain={forecastDomain as [number, number] | undefined} />
-                      <Tooltip formatter={(value: number) => [value.toLocaleString() + ' miles', '']} />
-                      <Legend />
-                      <Bar dataKey="projected" fill="#60a5fa" name="Projected" />
-                      <Bar dataKey="allowance" fill="#fb923c" name="Allowance" />
-                    </BarChart>
-                  </ResponsiveContainer>
-                </div>
-              </CardContent>
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <Card className="border-none bg-white/70 p-5 shadow-none backdrop-blur dark:bg-slate-900/60">
+              <div className="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">Current Balance</div>
+              <div className={`mt-3 text-3xl font-semibold ${availableColor}`}>
+                {formatMiles(availableMiles)}
+              </div>
+              <div className="mt-2 text-xs text-muted-foreground">vs. allowance to date</div>
             </Card>
-          )}
-        </TabsContent>
+            <Card className="border-none bg-white/70 p-5 shadow-none backdrop-blur dark:bg-slate-900/60">
+              <div className="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">After Planned Trips</div>
+              <div className={`mt-3 text-3xl font-semibold ${projectedAvailableColor}`}>
+                {formatMiles(projectedAvailableMiles)}
+              </div>
+              <div className="mt-2 text-xs text-muted-foreground">
+                Includes {formatMiles(futureTripMiles)} mi of scheduled driving
+              </div>
+            </Card>
+            <Card className="border-none bg-white/70 p-5 shadow-none backdrop-blur dark:bg-slate-900/60">
+              <div className="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">Miles Driven</div>
+              <div className="mt-3 text-3xl font-semibold text-slate-900 dark:text-white">
+                {stats.totalMiles.toLocaleString()}
+              </div>
+              <div className="mt-2 text-xs text-muted-foreground">Allowance to date: {Math.round(stats.allowanceToDate).toLocaleString()} mi</div>
+            </Card>
+            <Card className="border-none bg-white/70 p-5 shadow-none backdrop-blur dark:bg-slate-900/60">
+              <div className="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">Today&apos;s Pace</div>
+              <div className="mt-3 text-3xl font-semibold text-slate-900 dark:text-white">
+                {stats.todaysMiles.toLocaleString()}
+              </div>
+              <div className="mt-2 text-xs text-muted-foreground">Daily allowance {Math.round(stats.dailyAllowance).toLocaleString()} mi</div>
+            </Card>
+          </div>
+        </header>
 
+        <section className="grid gap-6 lg:grid-cols-[1.6fr,1fr]">
+          <Card className="overflow-hidden border-none bg-white/80 backdrop-blur-lg dark:bg-slate-900/60">
+            <CardHeader className="flex flex-col gap-4 pb-0">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <CardTitle className="text-xl font-semibold text-slate-900 dark:text-white">Mileage posture</CardTitle>
+                <span className={`rounded-full px-3 py-1 text-xs font-medium ${statusTokens.chipClass}`}>
+                  {statusTokens.label}
+                </span>
+              </div>
+              <p className="text-sm text-muted-foreground">{statusTokens.description}</p>
+            </CardHeader>
+            <CardContent className="space-y-8 pb-8">
+              <div className={`rounded-2xl bg-gradient-to-r p-1 dark:from-transparent ${statusTokens.accentClass}`}>
+                <div className="rounded-2xl bg-white/80 p-6 dark:bg-slate-950/50">
+                  <div className="space-y-6">
+                    {renderCenteredProgress('Current balance', currentProgress)}
+                    {renderCenteredProgress(
+                      'Planned trip outlook',
+                      projectedProgress,
+                      futureTripMiles > 0
+                        ? `Includes ${formatMiles(futureTripMiles)} mi of planned trips`
+                        : 'No planned trips scheduled'
+                    )}
+                  </div>
+                </div>
+              </div>
 
-        {/* Trip Planning Tab */}
-        <TabsContent value="trips">
-          <div className="space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle>Plan Future Trips</CardTitle>
+              {hasReadings && stats.blendedPace && (
+                <div className="grid gap-4 rounded-2xl border border-slate-200/70 p-4 dark:border-slate-700/60 sm:grid-cols-2 lg:grid-cols-4">
+                  <div className="text-center sm:text-left">
+                    <div className="text-sm text-muted-foreground">Today&apos;s miles</div>
+                    <div className="mt-1 text-xl font-semibold text-slate-900 dark:text-white">{stats.todaysMiles.toLocaleString()}</div>
+                  </div>
+                  <div className="text-center sm:text-left">
+                    <div className="text-sm text-muted-foreground">30-day pace</div>
+                    <div className="mt-1 text-xl font-semibold text-slate-900 dark:text-white">{stats.blendedPace.thirtyDayPace.toFixed(1)}</div>
+                  </div>
+                  <div className="text-center sm:text-left">
+                    <div className="text-sm text-muted-foreground">90-day pace</div>
+                    <div className="mt-1 text-xl font-semibold text-slate-900 dark:text-white">{stats.blendedPace.ninetyDayPace.toFixed(1)}</div>
+                  </div>
+                  <div className="text-center sm:text-left">
+                    <div className="text-sm text-muted-foreground">Lifetime pace</div>
+                    <div className="mt-1 text-xl font-semibold text-slate-900 dark:text-white">{stats.blendedPace.lifetimePace.toFixed(1)}</div>
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          <div className="space-y-6">
+            <Card className="border-none bg-white/80 backdrop-blur-lg dark:bg-slate-900/60">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base font-semibold text-slate-900 dark:text-white">Lease timeline</CardTitle>
               </CardHeader>
-              <CardContent>
-                <form onSubmit={handleAddTrip} className="space-y-4">
-                  <div>
-                    <Label htmlFor="tripName">Trip Name</Label>
-                    <Input
-                      id="tripName"
-                      type="text"
-                      value={newTrip.name}
-                      onChange={(e) => setNewTrip(prev => ({ ...prev, name: e.target.value }))}
-                      placeholder="e.g. Weekend getaway, business trip"
-                      required
-                    />
-                  </div>
-                  
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <Label htmlFor="startDate">Start Date</Label>
-                      <Input
-                        id="startDate"
-                        type="date"
-                        value={newTrip.startDate}
-                        onChange={(e) => setNewTrip(prev => ({ ...prev, startDate: e.target.value }))}
-                        required
-                      />
-                    </div>
-                    
-                    <div>
-                      <Label htmlFor="endDate">End Date</Label>
-                      <Input
-                        id="endDate"
-                        type="date"
-                        value={newTrip.endDate}
-                        onChange={(e) => setNewTrip(prev => ({ ...prev, endDate: e.target.value }))}
-                        required
-                      />
-                    </div>
-                  </div>
-                  
-                  <div>
-                    <Label htmlFor="estimatedMiles">Estimated Miles</Label>
-                    <Input
-                      id="estimatedMiles"
-                      type="number"
-                      value={newTrip.estimatedMiles}
-                      onChange={(e) => setNewTrip(prev => ({ ...prev, estimatedMiles: e.target.value }))}
-                      placeholder="e.g. 500"
-                      required
-                    />
-                  </div>
-                  
-                  <Button type="submit" className="w-full">
-                    Add Trip
-                  </Button>
-                </form>
+              <CardContent className="space-y-3 text-sm text-muted-foreground">
+                <div className="flex items-center justify-between text-slate-900 dark:text-slate-100">
+                  <span>Lease start</span>
+                  <span>{format(vehicleConfig.leaseStartDate, 'MMM dd, yyyy')}</span>
+                </div>
+                <div className="flex items-center justify-between text-slate-900 dark:text-slate-100">
+                  <span>Lease end</span>
+                  <span>{format(vehicleConfig.leaseEndDate, 'MMM dd, yyyy')}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span>Annual allowance</span>
+                  <span>{vehicleConfig.annualAllowance.toLocaleString()} mi</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span>Daily allowance</span>
+                  <span>{Math.round(stats.dailyAllowance).toLocaleString()} mi</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span>Lease progress</span>
+                  <span>{Math.max(0, stats.daysIntoLease)} / {totalLeaseDays} days</span>
+                </div>
+                <Progress value={leaseProgressPercent} className="h-2" />
               </CardContent>
             </Card>
 
-            {tripEvents.length > 0 && (
-              <Card>
-                <CardHeader>
-                  <CardTitle>Trip Events</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-3">
-                    {tripEvents.map((trip) => {
-                      const endDate = parseISO(trip.end_date);
-                      const today = startOfDay(new Date());
-                      const isPastTrip = endDate < today;
-                      
-                      return (
-                        <div key={trip.id} className={`p-4 border rounded-lg ${isPastTrip ? 'opacity-50 bg-gray-50' : ''}`}>
-                          <div className="flex justify-between items-start">
-                            <div>
-                              <h4 className={`font-medium ${isPastTrip ? 'text-gray-500' : ''}`}>
-                                {trip.event_name} {isPastTrip && '(Completed)'}
-                              </h4>
-                              <p className={`text-sm ${isPastTrip ? 'text-gray-400' : 'text-gray-600'}`}>
-                                {format(parseISO(trip.start_date), 'MMM dd')} - {format(parseISO(trip.end_date), 'MMM dd, yyyy')}
-                              </p>
-                              <p className={`text-sm ${isPastTrip ? 'text-gray-400' : 'text-gray-500'}`}>
-                                Estimated: {(trip.estimated_miles || 0).toLocaleString()} miles
-                              </p>
-                            </div>
-                            <Button 
-                              variant="outline" 
-                              size="sm"
-                              onClick={() => handleDeleteTrip(trip.id)}
-                            >
-                              Remove
-                            </Button>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-
-            <Card>
-              <CardHeader>
-                <CardTitle>Trip Impact Forecast</CardTitle>
+            <Card className="border-none bg-white/80 backdrop-blur-lg dark:bg-slate-900/60">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base font-semibold text-slate-900 dark:text-white">Trip impact</CardTitle>
               </CardHeader>
               <CardContent>
                 {futureTripEvents.length > 0 ? (
-                  <div className="space-y-2">
-                    <div className="flex justify-between">
-                      <span>Total Planned Miles:</span>
-                      <span className="font-medium">
-                        {futureTripEvents.reduce((sum, trip) => sum + (trip.estimated_miles || 0), 0).toLocaleString()}
-                      </span>
+                  <div className="space-y-4 text-sm">
+                    <div>
+                      <div className="text-xs uppercase tracking-wide text-muted-foreground">Planned miles</div>
+                      <div className="mt-1 text-2xl font-semibold text-slate-900 dark:text-white">
+                        {futureTripMiles.toLocaleString()} mi
+                      </div>
                     </div>
-                    <div className="flex justify-between">
-                      <span>Impact on Mileage Bank:</span>
-                      <span className={`font-medium ${
-                        (stats.overUnder + futureTripEvents.reduce((sum, trip) => sum + (trip.estimated_miles || 0), 0)) > 0 
-                          ? 'text-red-600' 
-                          : 'text-green-600'
+                    <div>
+                      <div className="text-xs uppercase tracking-wide text-muted-foreground">Projected balance</div>
+                      <div className={`mt-1 text-lg font-semibold ${
+                        (stats.overUnder + futureTripMiles) > 0 ? 'text-rose-600 dark:text-rose-300' : 'text-emerald-600 dark:text-emerald-300'
                       }`}>
-                        {stats.overUnder + futureTripEvents.reduce((sum, trip) => sum + (trip.estimated_miles || 0), 0) > 0 ? '+' : ''}
-                        {Math.round(stats.overUnder + futureTripEvents.reduce((sum, trip) => sum + (trip.estimated_miles || 0), 0)).toLocaleString()}
-                      </span>
+                        {(stats.overUnder + futureTripMiles) > 0 ? '+' : ''}
+                        {Math.round(stats.overUnder + futureTripMiles).toLocaleString()} mi
+                      </div>
                     </div>
                   </div>
                 ) : (
-                  <p className="text-gray-500 text-center py-4">
-                    No trips planned. Add a trip above to see its impact on your mileage allowance.
-                  </p>
+                  <p className="text-sm text-muted-foreground">No upcoming trips. Add a plan to see its effect.</p>
                 )}
               </CardContent>
             </Card>
           </div>
-        </TabsContent>
+        </section>
 
-        {/* History Tab */}
-        <TabsContent value="history">
-          <Card>
-            <CardHeader>
-              <CardTitle>Reading History</CardTitle>
-            </CardHeader>
-            <CardContent>
-              {readings.length > 0 ? (
-                <div className="space-y-2">
-                  {readings.slice().reverse().map((reading) => (
-                    <div key={reading.id} className="flex justify-between items-center p-3 border rounded-lg">
-                      <div>
-                        <div className="font-medium">
-                          {(reading.daily_miles ?? 0).toLocaleString()} miles ({reading.reading_miles.toLocaleString()} miles)
-                        </div>
-                        <div className="text-sm text-gray-600">
-                          {format(parseISO(reading.reading_date), 'MMM dd, yyyy')}
-                        </div>
-                        {reading.note && (
-                          <div className="text-sm text-gray-500 italic">
-                            {reading.note}
-                          </div>
-                        )}
+        <section className="space-y-5">
+          <div className="flex flex-col gap-2">
+            <h2 className="text-lg font-semibold text-slate-900 dark:text-white">Mileage intelligence</h2>
+            <p className="text-sm text-muted-foreground">Dive deeper into your trends, plan new journeys, or revisit your odometer history.</p>
+          </div>
+
+          <Tabs defaultValue="dashboard" className="space-y-5">
+            <TabsList className="grid w-full grid-cols-3 rounded-full bg-slate-100/60 p-1 dark:bg-slate-800/70">
+              <TabsTrigger className="rounded-full text-xs font-semibold uppercase tracking-wide data-[state=active]:bg-white data-[state=active]:text-slate-900 dark:data-[state=active]:bg-slate-900 dark:data-[state=active]:text-white" value="dashboard">
+                Dashboard
+              </TabsTrigger>
+              <TabsTrigger className="rounded-full text-xs font-semibold uppercase tracking-wide data-[state=active]:bg-white data-[state=active]:text-slate-900 dark:data-[state=active]:bg-slate-900 dark:data-[state=active]:text-white" value="trips">
+                Plan Trips
+              </TabsTrigger>
+              <TabsTrigger className="rounded-full text-xs font-semibold uppercase tracking-wide data-[state=active]:bg-white data-[state=active]:text-slate-900 dark:data-[state=active]:bg-slate-900 dark:data-[state=active]:text-white" value="history">
+                History
+              </TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="dashboard" className="space-y-5">
+              <Card className="border-none bg-white/80 backdrop-blur-lg dark:bg-slate-900/60">
+                <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <CardTitle className="text-base font-semibold text-slate-900 dark:text-white">Mileage tracking chart</CardTitle>
+                  <div className="flex items-center gap-1 rounded-full bg-slate-100/80 p-1 dark:bg-slate-800/80">
+                    <button
+                      onClick={() => setTimeRange('week')}
+                      className={`rounded-full px-3 py-1 text-xs font-medium transition ${
+                        timeRange === 'week'
+                          ? 'bg-white text-slate-900 shadow-sm dark:bg-slate-900 dark:text-white'
+                          : 'text-slate-500 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white'
+                      }`}
+                      type="button"
+                    >
+                      Week
+                    </button>
+                    <button
+                      onClick={() => setTimeRange('month')}
+                      className={`rounded-full px-3 py-1 text-xs font-medium transition ${
+                        timeRange === 'month'
+                          ? 'bg-white text-slate-900 shadow-sm dark:bg-slate-900 dark:text-white'
+                          : 'text-slate-500 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white'
+                      }`}
+                      type="button"
+                    >
+                      Month
+                    </button>
+                    <button
+                      onClick={() => setTimeRange('year')}
+                      className={`rounded-full px-3 py-1 text-xs font-medium transition ${
+                        timeRange === 'year'
+                          ? 'bg-white text-slate-900 shadow-sm dark:bg-slate-900 dark:text-white'
+                          : 'text-slate-500 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white'
+                      }`}
+                      type="button"
+                    >
+                      Year
+                    </button>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  {chartData.length > 0 ? (
+                    <div className="h-80">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <LineChart data={chartData}>
+                          <CartesianGrid strokeDasharray="3 3" stroke="#1f2937" />
+                          <XAxis
+                            dataKey="date"
+                            type="number"
+                            domain={['dataMin', 'dataMax']}
+                            scale="time"
+                            stroke="#94a3b8"
+                            tick={{ fill: '#94a3b8' }}
+                            tickFormatter={(value: number) => {
+                              const date = new Date(value);
+                              return timeRange === 'year'
+                                ? format(date, 'MMM yy')
+                                : format(date, 'MMM dd');
+                            }}
+                            allowDuplicatedCategory={false}
+                          />
+                          <YAxis stroke="#94a3b8" tick={{ fill: '#94a3b8' }} domain={lineDomain as [number, number] | undefined} />
+                          <Tooltip
+                            labelFormatter={(value: number, payload) => {
+                              const fromPayload = payload?.[0]?.payload?.label;
+                              if (fromPayload) return fromPayload;
+                              const date = new Date(value);
+                              return timeRange === 'year'
+                                ? format(date, 'MMM dd, yyyy')
+                                : format(date, 'MMM dd');
+                            }}
+                            formatter={(value: number, name: string) => [
+                              `${Math.round(value).toLocaleString()} miles`,
+                              name
+                            ]}
+                          />
+                          <Line
+                            type="monotone"
+                            dataKey="miles"
+                            stroke="#60a5fa"
+                            strokeWidth={2}
+                            dot={false}
+                            name="Actual Miles"
+                          />
+                          <Line
+                            type="monotone"
+                            dataKey="allowance"
+                            stroke="#fb923c"
+                            strokeWidth={2}
+                            strokeDasharray="5 5"
+                            dot={false}
+                            name="Allowance"
+                          />
+                        </LineChart>
+                      </ResponsiveContainer>
+                    </div>
+                  ) : (
+                    <div className="flex h-80 items-center justify-center text-sm text-muted-foreground">
+                      No mileage data available. Add your first odometer reading to get started!
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
+              <Card className="border-none bg-white/80 backdrop-blur-lg dark:bg-slate-900/60">
+                <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <CardTitle className="text-base font-semibold text-slate-900 dark:text-white">Weekly mileage trend</CardTitle>
+                  {weeklyTrend.length > 0 && (
+                    <div className="flex flex-wrap items-center gap-2">
+                      <div className="text-xs text-muted-foreground sm:text-sm">
+                        Page {Math.min(weekPage + 1, Math.max(totalWeeklyPages, 1))} of {Math.max(totalWeeklyPages, 1)}
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setWeekPage(prev => Math.min(prev + 1, Math.max(totalWeeklyPages - 1, 0)))}
+                          disabled={!canGoToPreviousWeeks}
+                        >
+                          Previous 4 Weeks
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setWeekPage(prev => Math.max(prev - 1, 0))}
+                          disabled={!canGoToNextWeeks}
+                        >
+                          Next 4 Weeks
+                        </Button>
                       </div>
                     </div>
-                  ))}
+                  )}
+                </CardHeader>
+                <CardContent>
+                  {visibleWeeklyData.length > 0 ? (
+                    <div className="h-80">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <LineChart data={visibleWeeklyData}>
+                          <CartesianGrid strokeDasharray="3 3" stroke="#1f2937" />
+                          <XAxis dataKey="label" stroke="#94a3b8" tick={{ fill: '#94a3b8' }} />
+                          <YAxis stroke="#94a3b8" tick={{ fill: '#94a3b8' }} />
+                          <Tooltip
+                            formatter={(value: number, _name: string, info?: Payload<number, string>) => [
+                              `${Math.round(value).toLocaleString()} miles`,
+                              info?.dataKey === 'allowance' ? 'Weekly Allowance' : 'Actual Miles'
+                            ]}
+                          />
+                          <Legend />
+                          <Line
+                            type="monotone"
+                            dataKey="miles"
+                            stroke="#34d399"
+                            strokeWidth={2}
+                            dot
+                            name="Actual Miles"
+                          />
+                          <Line
+                            type="monotone"
+                            dataKey="allowance"
+                            stroke="#fb923c"
+                            strokeWidth={2}
+                            strokeDasharray="5 5"
+                            dot={false}
+                            name="Weekly Allowance"
+                          />
+                        </LineChart>
+                      </ResponsiveContainer>
+                    </div>
+                  ) : (
+                    <div className="flex h-80 items-center justify-center text-sm text-muted-foreground">
+                      Not enough mileage data to calculate week-over-week trends.
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
+              <Card className="border-none bg-white/80 backdrop-blur-lg dark:bg-slate-900/60">
+                <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <CardTitle className="text-base font-semibold text-slate-900 dark:text-white">Projected weekly mileage</CardTitle>
+                  <div className="text-xs text-muted-foreground sm:text-sm">
+                    Projection for the next 4 weeks using the most recent 4 weeks of mileage data.
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  {weeklyProjectionData.length > 0 ? (
+                    <div className="h-80">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <LineChart data={weeklyProjectionData}>
+                          <CartesianGrid strokeDasharray="3 3" stroke="#1f2937" />
+                          <XAxis dataKey="label" stroke="#94a3b8" tick={{ fill: '#94a3b8' }} interval={0} angle={-20} textAnchor="end" height={80} />
+                          <YAxis stroke="#94a3b8" tick={{ fill: '#94a3b8' }} />
+                          <Tooltip
+                            formatter={(value: ValueType) => {
+                              if (typeof value !== 'number') {
+                                return value;
+                              }
+                              return [`${Math.round(value).toLocaleString()} miles`, 'Projected pace'];
+                            }}
+                          />
+                          <Line type="monotone" dataKey="projected" stroke="#6366f1" strokeWidth={2} dot />
+                        </LineChart>
+                      </ResponsiveContainer>
+                    </div>
+                  ) : (
+                    <div className="flex h-80 items-center justify-center text-sm text-muted-foreground">
+                      Add a few weeks of readings to unlock projections.
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            <TabsContent value="trips">
+              <div className="grid gap-5 lg:grid-cols-[1.3fr,1fr]">
+                <Card className="border-none bg-white/80 backdrop-blur-lg dark:bg-slate-900/60">
+                  <CardHeader>
+                    <CardTitle className="text-base font-semibold text-slate-900 dark:text-white">Add planned trip</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <form onSubmit={handleAddTrip} className="space-y-4">
+                      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                        <div className="sm:col-span-2">
+                          <Label htmlFor="trip-name">Trip name</Label>
+                          <Input
+                            id="trip-name"
+                            value={newTrip.name}
+                            onChange={(e) => setNewTrip(prev => ({ ...prev, name: e.target.value }))}
+                            placeholder="Family vacation, road trip, etc."
+                          />
+                        </div>
+                        <div>
+                          <Label htmlFor="trip-start">Start date</Label>
+                          <Input
+                            id="trip-start"
+                            type="date"
+                            value={newTrip.startDate}
+                            onChange={(e) => setNewTrip(prev => ({ ...prev, startDate: e.target.value }))}
+                          />
+                        </div>
+                        <div>
+                          <Label htmlFor="trip-end">End date</Label>
+                          <Input
+                            id="trip-end"
+                            type="date"
+                            value={newTrip.endDate}
+                            onChange={(e) => setNewTrip(prev => ({ ...prev, endDate: e.target.value }))}
+                          />
+                        </div>
+                        <div className="sm:col-span-2">
+                          <Label htmlFor="trip-miles">Estimated miles</Label>
+                          <Input
+                            id="trip-miles"
+                            value={newTrip.estimatedMiles}
+                            onChange={(e) => setNewTrip(prev => ({ ...prev, estimatedMiles: e.target.value }))}
+                            placeholder="Enter miles"
+                          />
+                        </div>
+                      </div>
+                      <Button type="submit" className="w-full rounded-full px-6 sm:w-auto">
+                        Add trip
+                      </Button>
+                    </form>
+                  </CardContent>
+                </Card>
+
+                <Card className="border-none bg-white/80 backdrop-blur-lg dark:bg-slate-900/60">
+                  <CardHeader>
+                    <CardTitle className="text-base font-semibold text-slate-900 dark:text-white">Upcoming trips</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    {futureTripEvents.length > 0 ? (
+                      <div className="space-y-3">
+                        {futureTripEvents.map((trip) => (
+                          <div key={trip.id} className="flex items-start justify-between gap-3 rounded-2xl border border-slate-200/70 p-3 dark:border-slate-700/60">
+                            <div className="space-y-1">
+                              <div className="text-sm font-medium text-slate-900 dark:text-white">{trip.event_name}</div>
+                              <div className="text-xs text-muted-foreground">
+                                {format(parseISO(trip.start_date), 'MMM dd')} - {format(parseISO(trip.end_date), 'MMM dd, yyyy')}
+                              </div>
+                              <div className="text-xs text-muted-foreground">
+                                {trip.estimated_miles.toLocaleString()} miles planned
+                              </div>
+                            </div>
+                            <Button variant="ghost" size="sm" onClick={() => handleDeleteTrip(trip.id)}>
+                              Remove
+                            </Button>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="rounded-2xl border border-dashed border-slate-200/70 p-6 text-center text-sm text-muted-foreground dark:border-slate-700/60">
+                        No upcoming trips.
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              </div>
+            </TabsContent>
+
+            <TabsContent value="history">
+              <Card className="border-none bg-white/80 backdrop-blur-lg dark:bg-slate-900/60">
+                <CardHeader>
+                  <CardTitle className="text-base font-semibold text-slate-900 dark:text-white">Reading history</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {readings.length > 0 ? (
+                    <div className="space-y-3">
+                      {readings.slice().reverse().map((reading) => (
+                        <div key={reading.id} className="rounded-2xl border border-slate-200/70 p-4 dark:border-slate-700/60">
+                          <div className="flex flex-wrap items-baseline justify-between gap-2">
+                            <div className="text-sm font-medium text-slate-900 dark:text-white">
+                              {(reading.daily_miles ?? 0).toLocaleString()} miles
+                            </div>
+                            <div className="text-xs text-muted-foreground">{reading.reading_miles.toLocaleString()} total</div>
+                          </div>
+                          <div className="mt-1 text-xs text-muted-foreground">
+                            {format(parseISO(reading.reading_date), 'MMM dd, yyyy')}
+                          </div>
+                          {reading.note && (
+                            <div className="mt-2 text-xs italic text-muted-foreground">{reading.note}</div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="rounded-2xl border border-dashed border-slate-200/70 p-8 text-center text-sm text-muted-foreground dark:border-slate-700/60">
+                      No readings recorded yet. Add your first reading to get started!
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </TabsContent>
+          </Tabs>
+        </section>
+
+        <section className="grid gap-6 lg:grid-cols-[1.2fr,1fr]">
+          <Card className="border-none bg-white/80 backdrop-blur-lg dark:bg-slate-900/60">
+            <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <CardTitle className="text-base font-semibold text-slate-900 dark:text-white">Gas costs</CardTitle>
+              <div className="flex items-center gap-3">
+                <Input
+                  value={stationId}
+                  onChange={(e) => setStationId(e.target.value)}
+                  placeholder="Station ID"
+                  className="w-28 rounded-full"
+                />
+                {gasPrice && (
+                  <div className="text-lg font-semibold text-slate-900 dark:text-white">
+                    ${gasPrice.toFixed(2)}
+                  </div>
+                )}
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="grid grid-cols-1 gap-4 text-center sm:grid-cols-3">
+                <div>
+                  <div className="text-lg font-semibold text-slate-900 dark:text-white">${gasStats.spentWeek.toFixed(2)}</div>
+                  <div className="text-xs text-muted-foreground">Spent last week</div>
                 </div>
-              ) : (
-                <div className="text-center text-gray-500 py-8">
-                  No readings recorded yet. Add your first reading to get started!
+                <div>
+                  <div className="text-lg font-semibold text-slate-900 dark:text-white">${gasStats.spentMonth.toFixed(2)}</div>
+                  <div className="text-xs text-muted-foreground">Spent last month</div>
                 </div>
-              )}
+                <div>
+                  <div className="text-lg font-semibold text-slate-900 dark:text-white">${gasStats.spentQuarter.toFixed(2)}</div>
+                  <div className="text-xs text-muted-foreground">Spent last quarter</div>
+                </div>
+              </div>
+              <div className="grid grid-cols-1 gap-4 text-center sm:grid-cols-3">
+                <div>
+                  <div className="text-lg font-semibold text-slate-900 dark:text-white">${gasStats.forecastWeek.toFixed(2)}</div>
+                  <div className="text-xs text-muted-foreground">Forecast next week</div>
+                </div>
+                <div>
+                  <div className="text-lg font-semibold text-slate-900 dark:text-white">${gasStats.forecastMonth.toFixed(2)}</div>
+                  <div className="text-xs text-muted-foreground">Forecast next month</div>
+                </div>
+                <div>
+                  <div className="text-lg font-semibold text-slate-900 dark:text-white">${gasStats.forecastQuarter.toFixed(2)}</div>
+                  <div className="text-xs text-muted-foreground">Forecast next quarter</div>
+                </div>
+              </div>
+              <div className="h-40">
+                {gasPriceTrend.length > 0 ? (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <LineChart data={gasPriceTrend} margin={{ top: 10, right: 20, bottom: 0, left: 0 }}>
+                      <XAxis dataKey="label" minTickGap={16} />
+                      <YAxis
+                        width={40}
+                        domain={["dataMin", "dataMax"]}
+                        tickFormatter={(value) => `$${(value as number).toFixed(2)}`}
+                      />
+                      <Tooltip
+                        formatter={(value: number | string) => [`$${Number(value).toFixed(2)}`, 'Price']}
+                        labelFormatter={(label) => `Recorded ${label}`}
+                      />
+                      <Line type="monotone" dataKey="price" stroke="#2563eb" strokeWidth={2} dot={false} />
+                    </LineChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
+                    No gas price data for the past month.
+                  </div>
+                )}
+              </div>
+              <div className="h-56">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={gasChartData}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="label" />
+                    <YAxis />
+                    <Tooltip formatter={(value: number) => [`$${(value as number).toFixed(2)}`, '']} />
+                    <Legend />
+                    <Bar dataKey="spent" fill="#8884d8" name="Spent" />
+                    <Bar dataKey="forecast" fill="#82ca9d" name="Forecast" />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
             </CardContent>
           </Card>
-        </TabsContent>
-      </Tabs>
 
-      {/* 3. Trip Impact Forecast Card */}
-      <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="text-sm font-medium">Trip Impact Forecast</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {futureTripEvents.length > 0 ? (
-            <div className="space-y-2">
-              <div className="text-lg font-semibold">
-                {futureTripEvents.reduce((sum, trip) => sum + (trip.estimated_miles || 0), 0).toLocaleString()} mi
+          <Card className="border-none bg-white/80 backdrop-blur-lg dark:bg-slate-900/60">
+            <CardHeader>
+              <CardTitle className="text-base font-semibold text-slate-900 dark:text-white">Quick notes</CardTitle>
+              <CardDescription>Keep an eye on spend and balance at a glance.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4 text-sm text-muted-foreground">
+              <div className="rounded-2xl border border-slate-200/70 p-4 dark:border-slate-700/60">
+                <div className="text-xs uppercase tracking-wide text-muted-foreground">Allowance balance</div>
+                <div className={`mt-1 text-lg font-semibold ${availableColor}`}>
+                  {formatMiles(availableMiles)} mi remaining
+                </div>
               </div>
-              <div className="text-xs text-gray-500">Planned Miles</div>
-              <div className={`text-sm font-medium ${
-                (stats.overUnder + futureTripEvents.reduce((sum, trip) => sum + (trip.estimated_miles || 0), 0)) > 0 
-                  ? 'text-red-600' 
-                  : 'text-green-600'
-              }`}>
-                {stats.overUnder + futureTripEvents.reduce((sum, trip) => sum + (trip.estimated_miles || 0), 0) > 0 ? '+' : ''}
-                {Math.round(stats.overUnder + futureTripEvents.reduce((sum, trip) => sum + (trip.estimated_miles || 0), 0)).toLocaleString()} projected
+              <div className="rounded-2xl border border-slate-200/70 p-4 dark:border-slate-700/60">
+                <div className="text-xs uppercase tracking-wide text-muted-foreground">Planned trips</div>
+                <div className="mt-1 text-lg font-semibold text-slate-900 dark:text-white">
+                  {futureTripEvents.length} scheduled
+                </div>
               </div>
-            </div>
-          ) : (
-            <div className="text-gray-500 text-center">
-              <div className="text-lg font-semibold">0 mi</div>
-              <div className="text-xs">No trips planned</div>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+            </CardContent>
+          </Card>
+        </section>
 
-      {/* Gas Cost Forecast */}
-      <Card>
-        <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
-          <CardTitle>Gas Costs</CardTitle>
-          <div className="flex items-center gap-3 mt-2 sm:mt-0">
-            <Input
-              value={stationId}
-              onChange={(e) => setStationId(e.target.value)}
-              placeholder="Station ID"
-              className="w-24"
-            />
-            {gasPrice && (
-              <div className="text-lg font-semibold text-gray-900 dark:text-white">
-                ${gasPrice.toFixed(2)}
-              </div>
-            )}
-          </div>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-3 gap-4 text-center mb-4">
-            <div>
-              <div className="text-lg font-semibold">${gasStats.spentWeek.toFixed(2)}</div>
-              <div className="text-xs text-gray-500">Spent last week</div>
-            </div>
-            <div>
-              <div className="text-lg font-semibold">${gasStats.spentMonth.toFixed(2)}</div>
-              <div className="text-xs text-gray-500">Spent last month</div>
-            </div>
-            <div>
-              <div className="text-lg font-semibold">${gasStats.spentQuarter.toFixed(2)}</div>
-              <div className="text-xs text-gray-500">Spent last quarter</div>
-            </div>
-          </div>
-          <div className="grid grid-cols-3 gap-4 text-center mb-4">
-            <div>
-              <div className="text-lg font-semibold">${gasStats.forecastWeek.toFixed(2)}</div>
-              <div className="text-xs text-gray-500">Forecast next week</div>
-            </div>
-            <div>
-              <div className="text-lg font-semibold">${gasStats.forecastMonth.toFixed(2)}</div>
-              <div className="text-xs text-gray-500">Forecast next month</div>
-            </div>
-            <div>
-              <div className="text-lg font-semibold">${gasStats.forecastQuarter.toFixed(2)}</div>
-              <div className="text-xs text-gray-500">Forecast next quarter</div>
-            </div>
-          </div>
-          <div className="mb-6 h-40">
-            {gasPriceTrend.length > 0 ? (
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={gasPriceTrend} margin={{ top: 10, right: 20, bottom: 0, left: 0 }}>
-                  <XAxis dataKey="label" minTickGap={16} />
-                  <YAxis
-                    width={40}
-                    domain={["dataMin", "dataMax"]}
-                    tickFormatter={(value) => `$${(value as number).toFixed(2)}`}
-                  />
-                  <Tooltip
-                    formatter={(value: number | string) => [`$${Number(value).toFixed(2)}`, 'Price']}
-                    labelFormatter={(label) => `Recorded ${label}`}
-                  />
-                  <Line type="monotone" dataKey="price" stroke="#2563eb" strokeWidth={2} dot={false} />
-                </LineChart>
-              </ResponsiveContainer>
-            ) : (
-              <div className="flex h-full items-center justify-center text-sm text-gray-500">
-                No gas price data for the past month.
-              </div>
-            )}
-          </div>
-          <ResponsiveContainer width="100%" height={200}>
-            <BarChart data={gasChartData}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="label" />
-              <YAxis />
-              <Tooltip formatter={(value: number) => [`$${(value as number).toFixed(2)}`, '']} />
-              <Legend />
-              <Bar dataKey="spent" fill="#8884d8" name="Spent" />
-              <Bar dataKey="forecast" fill="#82ca9d" name="Forecast" />
-            </BarChart>
-          </ResponsiveContainer>
-        </CardContent>
-      </Card>
-
-      {/* 4. Lease Information */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Lease Information</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-2">
-          <div className="flex justify-between">
-            <span>Lease Start:</span>
-            <span>{format(vehicleConfig.leaseStartDate, 'MMM dd, yyyy')}</span>
-          </div>
-          <div className="flex justify-between">
-            <span>Lease End:</span>
-            <span>{format(vehicleConfig.leaseEndDate, 'MMM dd, yyyy')}</span>
-          </div>
-          <div className="flex justify-between">
-            <span>Annual Allowance:</span>
-            <span>{vehicleConfig.annualAllowance.toLocaleString()} miles</span>
-          </div>
-          <div className="flex justify-between">
-            <span>Daily Allowance:</span>
-            <span>{Math.round(stats.dailyAllowance)} miles</span>
-          </div>
-          <div className="flex justify-between">
-            <span>Days into Lease:</span>
-            <span>{Math.max(0, stats.daysIntoLease)} days of {totalLeaseDays} days</span>
-          </div>
-          <Progress value={leaseProgressPercent} className="h-2" />
-        </CardContent>
-      </Card>
-
-      {/* Floating Odometer Button */}
-      <OdometerButton onAddReading={handleOdometerButtonAdd} />
+        <OdometerButton onAddReading={handleOdometerButtonAdd} />
+      </div>
     </div>
   );
 }
