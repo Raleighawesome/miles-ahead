@@ -7,16 +7,16 @@
     --brand-h: 222;
     --brand-s: 86%;
 
-    --brand-1: hsl(var(--brand-h) var(--brand-s) 94%);
-    --brand-2: hsl(var(--brand-h) var(--brand-s) 86%);
-    --brand-3: hsl(var(--brand-h) var(--brand-s) 62%);
+    --brand-1: var(--brand-h) var(--brand-s) 94%;
+    --brand-2: var(--brand-h) var(--brand-s) 86%;
+    --brand-3: var(--brand-h) var(--brand-s) 62%;
 
-    --bg: hsl(0 0% 100%);
-    --text: hsl(220 28% 16%);
+    --bg: 0 0% 100%;
+    --text: 220 28% 16%;
 
-    --surface-1: hsl(220 20% 98%);
-    --surface-2: hsl(220 22% 94%);
-    --surface-3: hsl(220 26% 90%);
+    --surface-1: 220 20% 98%;
+    --surface-2: 220 22% 94%;
+    --surface-3: 220 26% 90%;
 
     --sh-ambient: 0 1px 2px rgba(15, 23, 42, 0.08);
     --sh-key: 0 12px 28px rgba(15, 23, 42, 0.12);
@@ -33,32 +33,32 @@
     --card-foreground: var(--text);
     --popover: var(--surface-1);
     --popover-foreground: var(--text);
-    --primary: hsl(var(--brand-h) var(--brand-s) 56%);
-    --primary-foreground: hsl(0 0% 100%);
+    --primary: var(--brand-h) var(--brand-s) 56%;
+    --primary-foreground: 0 0% 100%;
     --secondary: var(--surface-2);
-    --secondary-foreground: hsl(220 16% 30%);
-    --muted: hsl(220 20% 92%);
-    --muted-foreground: hsl(220 12% 38%);
-    --accent: hsl(var(--brand-h) 64% 80%);
-    --accent-foreground: hsl(220 24% 20%);
+    --secondary-foreground: 220 16% 30%;
+    --muted: 220 20% 92%;
+    --muted-foreground: 220 12% 38%;
+    --accent: var(--brand-h) 64% 80%;
+    --accent-foreground: 220 24% 20%;
     --destructive: 0 84% 58%;
     --destructive-foreground: 0 0% 100%;
-    --border: hsl(220 18% 88%);
-    --input: hsl(220 18% 88%);
-    --ring: hsl(var(--brand-h) var(--brand-s) 62%);
+    --border: 220 18% 88%;
+    --input: 220 18% 88%;
+    --ring: var(--brand-h) var(--brand-s) 62%;
   }
 
   .dark {
-    --bg: hsl(220 18% 8%);
-    --text: hsl(220 14% 92%);
+    --bg: 220 18% 8%;
+    --text: 220 14% 92%;
 
-    --surface-1: hsl(220 18% 12%);
-    --surface-2: hsl(220 18% 16%);
-    --surface-3: hsl(220 20% 22%);
+    --surface-1: 220 18% 12%;
+    --surface-2: 220 18% 16%;
+    --surface-3: 220 20% 22%;
 
-    --brand-1: hsl(var(--brand-h) 40% 20%);
-    --brand-2: hsl(var(--brand-h) 58% 32%);
-    --brand-3: hsl(var(--brand-h) 85% 64%);
+    --brand-1: var(--brand-h) 40% 20%;
+    --brand-2: var(--brand-h) 58% 32%;
+    --brand-3: var(--brand-h) 85% 64%;
 
     --sh-ambient: 0 1px 2px rgba(15, 23, 42, 0.5);
     --sh-key: 0 18px 36px rgba(8, 14, 35, 0.55);
@@ -72,19 +72,19 @@
     --card-foreground: var(--text);
     --popover: var(--surface-2);
     --popover-foreground: var(--text);
-    --primary: hsl(var(--brand-h) var(--brand-s) 68%);
-    --primary-foreground: hsl(220 18% 12%);
+    --primary: var(--brand-h) var(--brand-s) 68%;
+    --primary-foreground: 220 18% 12%;
     --secondary: var(--surface-2);
-    --secondary-foreground: hsl(220 14% 88%);
-    --muted: hsl(220 18% 18%);
-    --muted-foreground: hsl(220 10% 66%);
-    --accent: hsl(var(--brand-h) 62% 38%);
-    --accent-foreground: hsl(220 18% 92%);
+    --secondary-foreground: 220 14% 88%;
+    --muted: 220 18% 18%;
+    --muted-foreground: 220 10% 66%;
+    --accent: var(--brand-h) 62% 38%;
+    --accent-foreground: 220 18% 92%;
     --destructive: 0 62% 40%;
     --destructive-foreground: 210 40% 98%;
-    --border: hsl(220 18% 20%);
-    --input: hsl(220 18% 20%);
-    --ring: hsl(var(--brand-h) var(--brand-s) 68%);
+    --border: 220 18% 20%;
+    --input: 220 18% 20%;
+    --ring: var(--brand-h) var(--brand-s) 68%;
   }
 }
 
@@ -114,13 +114,13 @@
 
 @layer utilities {
   .elev-1 {
-    background: var(--surface-1);
+    background: hsl(var(--surface-1));
     box-shadow: var(--sh-ambient);
     border-radius: var(--radius);
   }
 
   .elev-2 {
-    background: var(--surface-2);
+    background: hsl(var(--surface-2));
     box-shadow: var(--sh-ambient), var(--sh-key);
     border-radius: var(--radius);
   }
