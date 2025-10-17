@@ -748,9 +748,9 @@ export default function MilesTracker() {
   };
 
   const getAvailabilityColor = (value: number) => {
-    if (value > 0) return 'text-green-600';
-    if (value < 0) return 'text-red-600';
-    return 'text-gray-600';
+    if (value > 0) return 'text-emerald-400';
+    if (value < 0) return 'text-rose-400';
+    return 'text-foreground/70';
   };
 
   const renderCenteredProgress = (
@@ -764,46 +764,46 @@ export default function MilesTracker() {
         ? `${formatMiles(progress.delta)} miles credit`
         : `${formatMiles(progress.debt)} miles debt`;
     const balanceClass = progress.delta === 0
-      ? 'text-gray-600'
+      ? 'text-foreground/70'
       : progress.delta > 0
-        ? 'text-green-600'
-        : 'text-red-600';
+        ? 'text-emerald-400'
+        : 'text-rose-400';
 
     const creditWidth = progress.range === 0 ? 0 : Math.min(50, (progress.credit / progress.range) * 50);
     const debtWidth = progress.range === 0 ? 0 : Math.min(50, (progress.debt / progress.range) * 50);
 
     return (
-      <div className="space-y-2">
-        <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
-          <span className="font-medium">{label}</span>
-          <span className="text-xs text-gray-500">
+      <div className="space-y-3 rounded-[calc(var(--radius)*1.05)] bg-secondary/70 p-4">
+        <div className="flex flex-wrap items-center justify-between gap-2 text-xs uppercase tracking-wide text-foreground/60">
+          <span className="font-semibold text-foreground/80">{label}</span>
+          <span>
             Scale: ±{progress.range.toLocaleString()} miles
           </span>
         </div>
         {description && (
-          <div className="text-xs text-gray-500">{description}</div>
+          <div className="text-xs text-foreground/60">{description}</div>
         )}
         <div className={`text-sm font-semibold text-center ${balanceClass}`}>
           {balanceLabel}
         </div>
-        <div className="relative h-3 overflow-hidden rounded-full bg-muted">
-          <div className="absolute inset-y-0 left-1/2 w-px bg-border" />
+        <div className="relative h-3 overflow-hidden rounded-full bg-card/70 hairline-top hairline-bottom">
+          <div className="absolute inset-y-0 left-1/2 w-px bg-foreground/10" />
           {debtWidth > 0 && (
             <div
-              className="absolute right-1/2 top-0 h-full rounded-l-full bg-red-500 transition-all duration-500"
+              className="absolute right-1/2 top-0 h-full rounded-l-full bg-rose-500/80 transition-all duration-500"
               style={{ width: `${debtWidth}%` }}
             />
           )}
           {creditWidth > 0 && (
             <div
-              className="absolute left-1/2 top-0 h-full rounded-r-full bg-green-500 transition-all duration-500"
+              className="absolute left-1/2 top-0 h-full rounded-r-full bg-emerald-400/90 transition-all duration-500"
               style={{ width: `${creditWidth}%` }}
             />
           )}
         </div>
-        <div className="flex justify-between text-xs text-gray-500">
-          <span className="text-red-600">Debt: {formatMiles(progress.debt)} mi</span>
-          <span className="text-green-600">Credit: {formatMiles(progress.credit)} mi</span>
+        <div className="flex justify-between text-xs text-foreground/60">
+          <span className="text-rose-400">Debt: {formatMiles(progress.debt)} mi</span>
+          <span className="text-emerald-400">Credit: {formatMiles(progress.credit)} mi</span>
         </div>
       </div>
     );
@@ -978,8 +978,8 @@ export default function MilesTracker() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-lg">Loading mileage data...</div>
+      <div className="flex min-h-screen items-center justify-center bg-background">
+        <div className="text-sm text-foreground/70">Loading mileage data...</div>
       </div>
     );
   }
@@ -996,99 +996,103 @@ export default function MilesTracker() {
     green: {
       label: 'On Track',
       description: 'Your mileage is pacing comfortably within your allowance.',
-      chipClass: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-300',
-      accentClass: 'from-emerald-400/40 to-transparent'
+      chipClass: 'bg-emerald-500/15 text-emerald-300',
+      accentClass: 'from-emerald-500/25 to-transparent'
     },
     yellow: {
       label: 'Slightly Over',
       description: 'You are nudging past the allowance—consider easing mileage soon.',
-      chipClass: 'bg-amber-400/20 text-amber-600 dark:text-amber-300',
-      accentClass: 'from-amber-300/40 to-transparent'
+      chipClass: 'bg-amber-400/20 text-amber-200',
+      accentClass: 'from-amber-400/25 to-transparent'
     },
     orange: {
       label: 'Warning',
       description: 'Mileage pace is trending high. Plan a lighter driving stretch.',
-      chipClass: 'bg-orange-400/20 text-orange-600 dark:text-orange-300',
-      accentClass: 'from-orange-400/40 to-transparent'
+      chipClass: 'bg-orange-500/20 text-orange-200',
+      accentClass: 'from-orange-500/25 to-transparent'
     },
     red: {
       label: 'Over Limit',
       description: 'You are tracking over the allowance. Adjust upcoming trips to recover.',
-      chipClass: 'bg-rose-500/10 text-rose-600 dark:text-rose-300',
-      accentClass: 'from-rose-400/40 to-transparent'
+      chipClass: 'bg-rose-500/20 text-rose-200',
+      accentClass: 'from-rose-500/25 to-transparent'
     }
   };
 
   const statusTokens = alertStyles[alertKey];
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-slate-50 via-white to-slate-100 dark:from-slate-950 dark:via-slate-950 dark:to-black">
-      <div className="mx-auto flex max-w-6xl flex-col gap-12 px-4 pb-16 pt-12 sm:px-6 lg:px-8">
+    <div className="relative min-h-screen">
+      <div className="mx-auto flex w-full max-w-6xl flex-col gap-10 px-4 pb-20 pt-12 sm:px-6 lg:px-8">
         <header className="flex flex-col gap-6">
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-500 dark:text-slate-400">Miles Ahead</p>
-              <h1 className="text-3xl font-semibold text-slate-900 dark:text-white sm:text-4xl">Mileage Command Center</h1>
-              <p className="mt-3 max-w-xl text-sm text-muted-foreground">
-                A calm overview of your driving life—snapshot summaries, forecasts, and planning in one place.
-              </p>
+          <div className="flex flex-col gap-6 md:flex-row md:items-start md:justify-between">
+            <div className="space-y-4">
+              <span className="inline-flex w-fit items-center rounded-full bg-secondary/70 px-4 py-1 text-xs font-semibold uppercase tracking-[0.35em] text-foreground/60">
+                Miles Ahead
+              </span>
+              <div className="space-y-3">
+                <h1 className="text-3xl font-semibold leading-tight md:text-4xl">Mileage Command Center</h1>
+                <p className="max-w-xl text-sm text-foreground/70">
+                  A calm overview of your driving life—snapshot summaries, forecasts, and planning in one place.
+                </p>
+              </div>
             </div>
-            <div className="flex items-center gap-3 self-start">
-              <Button asChild variant="outline" className="rounded-full px-5">
+            <div className="flex w-full flex-col gap-3 rounded-[calc(var(--radius)*1.05)] bg-secondary/50 p-4 shadow-ambient backdrop-blur md:w-auto md:flex-row md:items-center md:justify-end md:bg-transparent md:p-0 md:shadow-none">
+              <Button asChild variant="outline" className="w-full md:w-auto">
                 <Link href="/settings">Settings</Link>
               </Button>
               <ThemeToggle />
             </div>
           </div>
 
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            <Card className="border-none bg-white/70 p-5 shadow-none backdrop-blur dark:bg-slate-900/60">
-              <div className="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">Current Balance</div>
-              <div className={`mt-3 text-3xl font-semibold ${availableColor}`}>
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            <Card className="elev-2 space-y-2 p-5 sm:p-6">
+              <div className="text-xs font-semibold uppercase tracking-wide text-foreground/60">Current balance</div>
+              <div className={`text-3xl font-semibold ${availableColor}`}>
                 {formatMiles(availableMiles)}
               </div>
-              <div className="mt-2 text-xs text-muted-foreground">vs. allowance to date</div>
+              <div className="text-xs text-foreground/60">vs. allowance to date</div>
             </Card>
-            <Card className="border-none bg-white/70 p-5 shadow-none backdrop-blur dark:bg-slate-900/60">
-              <div className="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">After Planned Trips</div>
-              <div className={`mt-3 text-3xl font-semibold ${projectedAvailableColor}`}>
+            <Card className="elev-2 space-y-2 p-5 sm:p-6">
+              <div className="text-xs font-semibold uppercase tracking-wide text-foreground/60">After planned trips</div>
+              <div className={`text-3xl font-semibold ${projectedAvailableColor}`}>
                 {formatMiles(projectedAvailableMiles)}
               </div>
-              <div className="mt-2 text-xs text-muted-foreground">
+              <div className="text-xs text-foreground/60">
                 Includes {formatMiles(futureTripMiles)} mi of scheduled driving
               </div>
             </Card>
-            <Card className="border-none bg-white/70 p-5 shadow-none backdrop-blur dark:bg-slate-900/60">
-              <div className="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">Miles Driven</div>
-              <div className="mt-3 text-3xl font-semibold text-slate-900 dark:text-white">
+            <Card className="elev-2 space-y-2 p-5 sm:p-6">
+              <div className="text-xs font-semibold uppercase tracking-wide text-foreground/60">Miles driven</div>
+              <div className="text-3xl font-semibold text-foreground">
                 {stats.totalMiles.toLocaleString()}
               </div>
-              <div className="mt-2 text-xs text-muted-foreground">Allowance to date: {Math.round(stats.allowanceToDate).toLocaleString()} mi</div>
+              <div className="text-xs text-foreground/60">Allowance to date: {Math.round(stats.allowanceToDate).toLocaleString()} mi</div>
             </Card>
-            <Card className="border-none bg-white/70 p-5 shadow-none backdrop-blur dark:bg-slate-900/60">
-              <div className="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">Today&apos;s Pace</div>
-              <div className="mt-3 text-3xl font-semibold text-slate-900 dark:text-white">
+            <Card className="elev-2 space-y-2 p-5 sm:p-6">
+              <div className="text-xs font-semibold uppercase tracking-wide text-foreground/60">Today&apos;s pace</div>
+              <div className="text-3xl font-semibold text-foreground">
                 {stats.todaysMiles.toLocaleString()}
               </div>
-              <div className="mt-2 text-xs text-muted-foreground">Daily allowance {Math.round(stats.dailyAllowance).toLocaleString()} mi</div>
+              <div className="text-xs text-foreground/60">Daily allowance {Math.round(stats.dailyAllowance).toLocaleString()} mi</div>
             </Card>
           </div>
         </header>
 
         <section className="grid gap-6 lg:grid-cols-[1.6fr,1fr]">
-          <Card className="overflow-hidden border-none bg-white/80 backdrop-blur-lg dark:bg-slate-900/60">
+          <Card className="elev-2 overflow-hidden shadow-dual">
             <CardHeader className="flex flex-col gap-4 pb-0">
               <div className="flex flex-wrap items-center justify-between gap-3">
-                <CardTitle className="text-xl font-semibold text-slate-900 dark:text-white">Mileage posture</CardTitle>
-                <span className={`rounded-full px-3 py-1 text-xs font-medium ${statusTokens.chipClass}`}>
+                <CardTitle className="text-xl font-semibold text-foreground">Mileage posture</CardTitle>
+                <span className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold ${statusTokens.chipClass}`}>
                   {statusTokens.label}
                 </span>
               </div>
-              <p className="text-sm text-muted-foreground">{statusTokens.description}</p>
+              <p className="text-sm text-foreground/70">{statusTokens.description}</p>
             </CardHeader>
             <CardContent className="space-y-8 pb-8">
-              <div className={`rounded-2xl bg-gradient-to-r p-1 dark:from-transparent ${statusTokens.accentClass}`}>
-                <div className="rounded-2xl bg-white/80 p-6 dark:bg-slate-950/50">
+              <div className={`rounded-[calc(var(--radius)*1.2)] bg-gradient-to-r ${statusTokens.accentClass} p-[1px]`}>
+                <div className="rounded-[calc(var(--radius)*1.2)] bg-card/80 p-6 backdrop-blur">
                   <div className="space-y-6">
                     {renderCenteredProgress('Current balance', currentProgress)}
                     {renderCenteredProgress(
@@ -1103,22 +1107,22 @@ export default function MilesTracker() {
               </div>
 
               {hasReadings && stats.blendedPace && (
-                <div className="grid gap-4 rounded-2xl border border-slate-200/70 p-4 dark:border-slate-700/60 sm:grid-cols-2 lg:grid-cols-4">
+                <div className="grid gap-4 rounded-[calc(var(--radius)*1.1)] bg-secondary/60 p-4 sm:grid-cols-2 lg:grid-cols-4">
                   <div className="text-center sm:text-left">
-                    <div className="text-sm text-muted-foreground">Today&apos;s miles</div>
-                    <div className="mt-1 text-xl font-semibold text-slate-900 dark:text-white">{stats.todaysMiles.toLocaleString()}</div>
+                    <div className="text-xs uppercase tracking-wide text-foreground/60">Today&apos;s miles</div>
+                    <div className="mt-1 text-xl font-semibold text-foreground">{stats.todaysMiles.toLocaleString()}</div>
                   </div>
                   <div className="text-center sm:text-left">
-                    <div className="text-sm text-muted-foreground">30-day pace</div>
-                    <div className="mt-1 text-xl font-semibold text-slate-900 dark:text-white">{stats.blendedPace.thirtyDayPace.toFixed(1)}</div>
+                    <div className="text-xs uppercase tracking-wide text-foreground/60">30-day pace</div>
+                    <div className="mt-1 text-xl font-semibold text-foreground">{stats.blendedPace.thirtyDayPace.toFixed(1)}</div>
                   </div>
                   <div className="text-center sm:text-left">
-                    <div className="text-sm text-muted-foreground">90-day pace</div>
-                    <div className="mt-1 text-xl font-semibold text-slate-900 dark:text-white">{stats.blendedPace.ninetyDayPace.toFixed(1)}</div>
+                    <div className="text-xs uppercase tracking-wide text-foreground/60">90-day pace</div>
+                    <div className="mt-1 text-xl font-semibold text-foreground">{stats.blendedPace.ninetyDayPace.toFixed(1)}</div>
                   </div>
                   <div className="text-center sm:text-left">
-                    <div className="text-sm text-muted-foreground">Lifetime pace</div>
-                    <div className="mt-1 text-xl font-semibold text-slate-900 dark:text-white">{stats.blendedPace.lifetimePace.toFixed(1)}</div>
+                    <div className="text-xs uppercase tracking-wide text-foreground/60">Lifetime pace</div>
+                    <div className="mt-1 text-xl font-semibold text-foreground">{stats.blendedPace.lifetimePace.toFixed(1)}</div>
                   </div>
                 </div>
               )}
@@ -1126,16 +1130,16 @@ export default function MilesTracker() {
           </Card>
 
           <div className="space-y-6">
-            <Card className="border-none bg-white/80 backdrop-blur-lg dark:bg-slate-900/60">
+            <Card className="elev-2 shadow-ambient">
               <CardHeader className="pb-3">
-                <CardTitle className="text-base font-semibold text-slate-900 dark:text-white">Lease timeline</CardTitle>
+                <CardTitle className="text-base font-semibold text-foreground">Lease timeline</CardTitle>
               </CardHeader>
-              <CardContent className="space-y-3 text-sm text-muted-foreground">
-                <div className="flex items-center justify-between text-slate-900 dark:text-slate-100">
+              <CardContent className="space-y-3 text-sm text-foreground/70">
+                <div className="flex items-center justify-between text-foreground">
                   <span>Lease start</span>
                   <span>{format(vehicleConfig.leaseStartDate, 'MMM dd, yyyy')}</span>
                 </div>
-                <div className="flex items-center justify-between text-slate-900 dark:text-slate-100">
+                <div className="flex items-center justify-between text-foreground">
                   <span>Lease end</span>
                   <span>{format(vehicleConfig.leaseEndDate, 'MMM dd, yyyy')}</span>
                 </div>
@@ -1155,23 +1159,23 @@ export default function MilesTracker() {
               </CardContent>
             </Card>
 
-            <Card className="border-none bg-white/80 backdrop-blur-lg dark:bg-slate-900/60">
+            <Card className="elev-2 shadow-ambient">
               <CardHeader className="pb-3">
-                <CardTitle className="text-base font-semibold text-slate-900 dark:text-white">Trip impact</CardTitle>
+                <CardTitle className="text-base font-semibold text-foreground">Trip impact</CardTitle>
               </CardHeader>
               <CardContent>
                 {futureTripEvents.length > 0 ? (
                   <div className="space-y-4 text-sm">
                     <div>
-                      <div className="text-xs uppercase tracking-wide text-muted-foreground">Planned miles</div>
-                      <div className="mt-1 text-2xl font-semibold text-slate-900 dark:text-white">
+                      <div className="text-xs uppercase tracking-wide text-foreground/60">Planned miles</div>
+                      <div className="mt-1 text-2xl font-semibold text-foreground">
                         {futureTripMiles.toLocaleString()} mi
                       </div>
                     </div>
                     <div>
-                      <div className="text-xs uppercase tracking-wide text-muted-foreground">Projected balance</div>
+                      <div className="text-xs uppercase tracking-wide text-foreground/60">Projected balance</div>
                       <div className={`mt-1 text-lg font-semibold ${
-                        (stats.overUnder + futureTripMiles) > 0 ? 'text-rose-600 dark:text-rose-300' : 'text-emerald-600 dark:text-emerald-300'
+                        (stats.overUnder + futureTripMiles) > 0 ? 'text-rose-300' : 'text-emerald-300'
                       }`}>
                         {(stats.overUnder + futureTripMiles) > 0 ? '+' : ''}
                         {Math.round(stats.overUnder + futureTripMiles).toLocaleString()} mi
@@ -1179,7 +1183,7 @@ export default function MilesTracker() {
                     </div>
                   </div>
                 ) : (
-                  <p className="text-sm text-muted-foreground">No upcoming trips. Add a plan to see its effect.</p>
+                  <p className="text-sm text-foreground/60">No upcoming trips. Add a plan to see its effect.</p>
                 )}
               </CardContent>
             </Card>
@@ -1188,34 +1192,34 @@ export default function MilesTracker() {
 
         <section className="space-y-5">
           <div className="flex flex-col gap-2">
-            <h2 className="text-lg font-semibold text-slate-900 dark:text-white">Mileage intelligence</h2>
-            <p className="text-sm text-muted-foreground">Dive deeper into your trends, plan new journeys, or revisit your odometer history.</p>
+            <h2 className="text-lg font-semibold text-foreground">Mileage intelligence</h2>
+            <p className="text-sm text-foreground/70">Dive deeper into your trends, plan new journeys, or revisit your odometer history.</p>
           </div>
 
           <Tabs defaultValue="dashboard" className="space-y-5">
-            <TabsList className="grid w-full grid-cols-3 rounded-full bg-slate-100/60 p-1 dark:bg-slate-800/70">
-              <TabsTrigger className="rounded-full text-xs font-semibold uppercase tracking-wide data-[state=active]:bg-white data-[state=active]:text-slate-900 dark:data-[state=active]:bg-slate-900 dark:data-[state=active]:text-white" value="dashboard">
+            <TabsList className="grid w-full grid-cols-3 gap-1 rounded-full bg-secondary/60 p-1 shadow-ambient">
+              <TabsTrigger className="text-xs font-semibold uppercase tracking-wide" value="dashboard">
                 Dashboard
               </TabsTrigger>
-              <TabsTrigger className="rounded-full text-xs font-semibold uppercase tracking-wide data-[state=active]:bg-white data-[state=active]:text-slate-900 dark:data-[state=active]:bg-slate-900 dark:data-[state=active]:text-white" value="trips">
+              <TabsTrigger className="text-xs font-semibold uppercase tracking-wide" value="trips">
                 Plan Trips
               </TabsTrigger>
-              <TabsTrigger className="rounded-full text-xs font-semibold uppercase tracking-wide data-[state=active]:bg-white data-[state=active]:text-slate-900 dark:data-[state=active]:bg-slate-900 dark:data-[state=active]:text-white" value="history">
+              <TabsTrigger className="text-xs font-semibold uppercase tracking-wide" value="history">
                 History
               </TabsTrigger>
             </TabsList>
 
             <TabsContent value="dashboard" className="space-y-5">
-              <Card className="border-none bg-white/80 backdrop-blur-lg dark:bg-slate-900/60">
+              <Card className="elev-2 shadow-ambient">
                 <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                  <CardTitle className="text-base font-semibold text-slate-900 dark:text-white">Mileage tracking chart</CardTitle>
-                  <div className="flex items-center gap-1 rounded-full bg-slate-100/80 p-1 dark:bg-slate-800/80">
+                  <CardTitle className="text-base font-semibold text-foreground">Mileage tracking chart</CardTitle>
+                  <div className="flex items-center gap-1 rounded-full bg-secondary/60 p-1">
                     <button
                       onClick={() => setTimeRange('week')}
                       className={`rounded-full px-3 py-1 text-xs font-medium transition ${
                         timeRange === 'week'
-                          ? 'bg-white text-slate-900 shadow-sm dark:bg-slate-900 dark:text-white'
-                          : 'text-slate-500 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white'
+                          ? 'bg-background text-foreground shadow-dual'
+                          : 'text-foreground/60 hover:text-foreground'
                       }`}
                       type="button"
                     >
@@ -1225,8 +1229,8 @@ export default function MilesTracker() {
                       onClick={() => setTimeRange('month')}
                       className={`rounded-full px-3 py-1 text-xs font-medium transition ${
                         timeRange === 'month'
-                          ? 'bg-white text-slate-900 shadow-sm dark:bg-slate-900 dark:text-white'
-                          : 'text-slate-500 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white'
+                          ? 'bg-background text-foreground shadow-dual'
+                          : 'text-foreground/60 hover:text-foreground'
                       }`}
                       type="button"
                     >
@@ -1236,8 +1240,8 @@ export default function MilesTracker() {
                       onClick={() => setTimeRange('year')}
                       className={`rounded-full px-3 py-1 text-xs font-medium transition ${
                         timeRange === 'year'
-                          ? 'bg-white text-slate-900 shadow-sm dark:bg-slate-900 dark:text-white'
-                          : 'text-slate-500 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white'
+                          ? 'bg-background text-foreground shadow-dual'
+                          : 'text-foreground/60 hover:text-foreground'
                       }`}
                       type="button"
                     >
@@ -1250,14 +1254,14 @@ export default function MilesTracker() {
                     <div className="h-80">
                       <ResponsiveContainer width="100%" height="100%">
                         <LineChart data={chartData}>
-                          <CartesianGrid strokeDasharray="3 3" stroke="#1f2937" />
+                          <CartesianGrid strokeDasharray="3 3" stroke="rgba(148,163,184,0.2)" />
                           <XAxis
                             dataKey="date"
                             type="number"
                             domain={['dataMin', 'dataMax']}
                             scale="time"
-                            stroke="#94a3b8"
-                            tick={{ fill: '#94a3b8' }}
+                            stroke="rgba(148,163,184,0.6)"
+                            tick={{ fill: '#cbd5f5' }}
                             tickFormatter={(value: number) => {
                               const date = new Date(value);
                               return timeRange === 'year'
@@ -1266,7 +1270,7 @@ export default function MilesTracker() {
                             }}
                             allowDuplicatedCategory={false}
                           />
-                          <YAxis stroke="#94a3b8" tick={{ fill: '#94a3b8' }} domain={lineDomain as [number, number] | undefined} />
+                          <YAxis stroke="rgba(148,163,184,0.6)" tick={{ fill: '#cbd5f5' }} domain={lineDomain as [number, number] | undefined} />
                           <Tooltip
                             labelFormatter={(value: number, payload) => {
                               const fromPayload = payload?.[0]?.payload?.label;
@@ -1302,19 +1306,19 @@ export default function MilesTracker() {
                       </ResponsiveContainer>
                     </div>
                   ) : (
-                    <div className="flex h-80 items-center justify-center text-sm text-muted-foreground">
+                    <div className="flex h-80 items-center justify-center text-sm text-foreground/60">
                       No mileage data available. Add your first odometer reading to get started!
                     </div>
                   )}
                 </CardContent>
               </Card>
 
-              <Card className="border-none bg-white/80 backdrop-blur-lg dark:bg-slate-900/60">
+              <Card className="elev-2 shadow-ambient">
                 <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                  <CardTitle className="text-base font-semibold text-slate-900 dark:text-white">Weekly mileage trend</CardTitle>
+                  <CardTitle className="text-base font-semibold text-foreground">Weekly mileage trend</CardTitle>
                   {weeklyTrend.length > 0 && (
                     <div className="flex flex-wrap items-center gap-2">
-                      <div className="text-xs text-muted-foreground sm:text-sm">
+                      <div className="text-xs text-foreground/60 sm:text-sm">
                         Page {Math.min(weekPage + 1, Math.max(totalWeeklyPages, 1))} of {Math.max(totalWeeklyPages, 1)}
                       </div>
                       <div className="flex items-center gap-2">
@@ -1343,9 +1347,9 @@ export default function MilesTracker() {
                     <div className="h-80">
                       <ResponsiveContainer width="100%" height="100%">
                         <LineChart data={visibleWeeklyData}>
-                          <CartesianGrid strokeDasharray="3 3" stroke="#1f2937" />
-                          <XAxis dataKey="label" stroke="#94a3b8" tick={{ fill: '#94a3b8' }} />
-                          <YAxis stroke="#94a3b8" tick={{ fill: '#94a3b8' }} />
+                          <CartesianGrid strokeDasharray="3 3" stroke="rgba(148,163,184,0.2)" />
+                          <XAxis dataKey="label" stroke="rgba(148,163,184,0.6)" tick={{ fill: '#cbd5f5' }} />
+                          <YAxis stroke="rgba(148,163,184,0.6)" tick={{ fill: '#cbd5f5' }} />
                           <Tooltip
                             formatter={(value: number, _name: string, info?: Payload<number, string>) => [
                               `${Math.round(value).toLocaleString()} miles`,
@@ -1374,17 +1378,17 @@ export default function MilesTracker() {
                       </ResponsiveContainer>
                     </div>
                   ) : (
-                    <div className="flex h-80 items-center justify-center text-sm text-muted-foreground">
+                    <div className="flex h-80 items-center justify-center text-sm text-foreground/60">
                       Not enough mileage data to calculate week-over-week trends.
                     </div>
                   )}
                 </CardContent>
               </Card>
 
-              <Card className="border-none bg-white/80 backdrop-blur-lg dark:bg-slate-900/60">
+              <Card className="elev-2 shadow-ambient">
                 <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                  <CardTitle className="text-base font-semibold text-slate-900 dark:text-white">Projected weekly mileage</CardTitle>
-                  <div className="text-xs text-muted-foreground sm:text-sm">
+                  <CardTitle className="text-base font-semibold text-foreground">Projected weekly mileage</CardTitle>
+                  <div className="text-xs text-foreground/60 sm:text-sm">
                     Projection for the next 4 weeks using the most recent 4 weeks of mileage data.
                   </div>
                 </CardHeader>
@@ -1393,9 +1397,9 @@ export default function MilesTracker() {
                     <div className="h-80">
                       <ResponsiveContainer width="100%" height="100%">
                         <LineChart data={weeklyProjectionData}>
-                          <CartesianGrid strokeDasharray="3 3" stroke="#1f2937" />
-                          <XAxis dataKey="label" stroke="#94a3b8" tick={{ fill: '#94a3b8' }} interval={0} angle={-20} textAnchor="end" height={80} />
-                          <YAxis stroke="#94a3b8" tick={{ fill: '#94a3b8' }} />
+                          <CartesianGrid strokeDasharray="3 3" stroke="rgba(148,163,184,0.2)" />
+                          <XAxis dataKey="label" stroke="rgba(148,163,184,0.6)" tick={{ fill: '#cbd5f5' }} interval={0} angle={-20} textAnchor="end" height={80} />
+                          <YAxis stroke="rgba(148,163,184,0.6)" tick={{ fill: '#cbd5f5' }} />
                           <Tooltip
                             formatter={(value: ValueType) => {
                               if (typeof value !== 'number') {
@@ -1404,12 +1408,12 @@ export default function MilesTracker() {
                               return [`${Math.round(value).toLocaleString()} miles`, 'Projected pace'];
                             }}
                           />
-                          <Line type="monotone" dataKey="projected" stroke="#6366f1" strokeWidth={2} dot />
+                          <Line type="monotone" dataKey="projected" stroke="#818cf8" strokeWidth={2} dot />
                         </LineChart>
                       </ResponsiveContainer>
                     </div>
                   ) : (
-                    <div className="flex h-80 items-center justify-center text-sm text-muted-foreground">
+                    <div className="flex h-80 items-center justify-center text-sm text-foreground/60">
                       Add a few weeks of readings to unlock projections.
                     </div>
                   )}
@@ -1419,9 +1423,9 @@ export default function MilesTracker() {
 
             <TabsContent value="trips">
               <div className="grid gap-5 lg:grid-cols-[1.3fr,1fr]">
-                <Card className="border-none bg-white/80 backdrop-blur-lg dark:bg-slate-900/60">
+                <Card className="elev-2 shadow-ambient">
                   <CardHeader>
-                    <CardTitle className="text-base font-semibold text-slate-900 dark:text-white">Add planned trip</CardTitle>
+                    <CardTitle className="text-base font-semibold text-foreground">Add planned trip</CardTitle>
                   </CardHeader>
                   <CardContent>
                     <form onSubmit={handleAddTrip} className="space-y-4">
@@ -1470,21 +1474,21 @@ export default function MilesTracker() {
                   </CardContent>
                 </Card>
 
-                <Card className="border-none bg-white/80 backdrop-blur-lg dark:bg-slate-900/60">
+                <Card className="elev-2 shadow-ambient">
                   <CardHeader>
-                    <CardTitle className="text-base font-semibold text-slate-900 dark:text-white">Upcoming trips</CardTitle>
+                    <CardTitle className="text-base font-semibold text-foreground">Upcoming trips</CardTitle>
                   </CardHeader>
                   <CardContent>
                     {futureTripEvents.length > 0 ? (
                       <div className="space-y-3">
                         {futureTripEvents.map((trip) => (
-                          <div key={trip.id} className="flex items-start justify-between gap-3 rounded-2xl border border-slate-200/70 p-3 dark:border-slate-700/60">
+                          <div key={trip.id} className="flex items-start justify-between gap-3 rounded-[calc(var(--radius)*0.9)] bg-secondary/60 p-3">
                             <div className="space-y-1">
-                              <div className="text-sm font-medium text-slate-900 dark:text-white">{trip.event_name}</div>
-                              <div className="text-xs text-muted-foreground">
+                              <div className="text-sm font-medium text-foreground">{trip.event_name}</div>
+                              <div className="text-xs text-foreground/60">
                                 {format(parseISO(trip.start_date), 'MMM dd')} - {format(parseISO(trip.end_date), 'MMM dd, yyyy')}
                               </div>
-                              <div className="text-xs text-muted-foreground">
+                              <div className="text-xs text-foreground/60">
                                 {trip.estimated_miles.toLocaleString()} miles planned
                               </div>
                             </div>
@@ -1495,7 +1499,7 @@ export default function MilesTracker() {
                         ))}
                       </div>
                     ) : (
-                      <div className="rounded-2xl border border-dashed border-slate-200/70 p-6 text-center text-sm text-muted-foreground dark:border-slate-700/60">
+                      <div className="rounded-[calc(var(--radius)*0.9)] border border-dashed border-border/50 p-6 text-center text-sm text-foreground/60">
                         No upcoming trips.
                       </div>
                     )}
@@ -1505,32 +1509,32 @@ export default function MilesTracker() {
             </TabsContent>
 
             <TabsContent value="history">
-              <Card className="border-none bg-white/80 backdrop-blur-lg dark:bg-slate-900/60">
+              <Card className="elev-2 shadow-ambient">
                 <CardHeader>
-                  <CardTitle className="text-base font-semibold text-slate-900 dark:text-white">Reading history</CardTitle>
+                  <CardTitle className="text-base font-semibold text-foreground">Reading history</CardTitle>
                 </CardHeader>
                 <CardContent>
                   {readings.length > 0 ? (
                     <div className="space-y-3">
                       {readings.slice().reverse().map((reading) => (
-                        <div key={reading.id} className="rounded-2xl border border-slate-200/70 p-4 dark:border-slate-700/60">
+                        <div key={reading.id} className="rounded-[calc(var(--radius)*0.9)] bg-secondary/60 p-4">
                           <div className="flex flex-wrap items-baseline justify-between gap-2">
-                            <div className="text-sm font-medium text-slate-900 dark:text-white">
+                            <div className="text-sm font-medium text-foreground">
                               {(reading.daily_miles ?? 0).toLocaleString()} miles
                             </div>
-                            <div className="text-xs text-muted-foreground">{reading.reading_miles.toLocaleString()} total</div>
+                            <div className="text-xs text-foreground/60">{reading.reading_miles.toLocaleString()} total</div>
                           </div>
-                          <div className="mt-1 text-xs text-muted-foreground">
+                          <div className="mt-1 text-xs text-foreground/60">
                             {format(parseISO(reading.reading_date), 'MMM dd, yyyy')}
                           </div>
                           {reading.note && (
-                            <div className="mt-2 text-xs italic text-muted-foreground">{reading.note}</div>
+                            <div className="mt-2 text-xs italic text-foreground/60">{reading.note}</div>
                           )}
                         </div>
                       ))}
                     </div>
                   ) : (
-                    <div className="rounded-2xl border border-dashed border-slate-200/70 p-8 text-center text-sm text-muted-foreground dark:border-slate-700/60">
+                    <div className="rounded-[calc(var(--radius)*0.9)] border border-dashed border-border/50 p-8 text-center text-sm text-foreground/60">
                       No readings recorded yet. Add your first reading to get started!
                     </div>
                   )}
@@ -1541,18 +1545,18 @@ export default function MilesTracker() {
         </section>
 
         <section className="grid gap-6 lg:grid-cols-[1.2fr,1fr]">
-          <Card className="border-none bg-white/80 backdrop-blur-lg dark:bg-slate-900/60">
+          <Card className="elev-2 shadow-ambient">
             <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <CardTitle className="text-base font-semibold text-slate-900 dark:text-white">Gas costs</CardTitle>
+              <CardTitle className="text-base font-semibold text-foreground">Gas costs</CardTitle>
               <div className="flex items-center gap-3">
                 <Input
                   value={stationId}
                   onChange={(e) => setStationId(e.target.value)}
                   placeholder="Station ID"
-                  className="w-28 rounded-full"
+                  className="w-28"
                 />
                 {gasPrice && (
-                  <div className="text-lg font-semibold text-slate-900 dark:text-white">
+                  <div className="text-lg font-semibold text-foreground">
                     ${gasPrice.toFixed(2)}
                   </div>
                 )}
@@ -1561,51 +1565,54 @@ export default function MilesTracker() {
             <CardContent className="space-y-6">
               <div className="grid grid-cols-1 gap-4 text-center sm:grid-cols-3">
                 <div>
-                  <div className="text-lg font-semibold text-slate-900 dark:text-white">${gasStats.spentWeek.toFixed(2)}</div>
-                  <div className="text-xs text-muted-foreground">Spent last week</div>
+                  <div className="text-lg font-semibold text-foreground">${gasStats.spentWeek.toFixed(2)}</div>
+                  <div className="text-xs text-foreground/60">Spent last week</div>
                 </div>
                 <div>
-                  <div className="text-lg font-semibold text-slate-900 dark:text-white">${gasStats.spentMonth.toFixed(2)}</div>
-                  <div className="text-xs text-muted-foreground">Spent last month</div>
+                  <div className="text-lg font-semibold text-foreground">${gasStats.spentMonth.toFixed(2)}</div>
+                  <div className="text-xs text-foreground/60">Spent last month</div>
                 </div>
                 <div>
-                  <div className="text-lg font-semibold text-slate-900 dark:text-white">${gasStats.spentQuarter.toFixed(2)}</div>
-                  <div className="text-xs text-muted-foreground">Spent last quarter</div>
+                  <div className="text-lg font-semibold text-foreground">${gasStats.spentQuarter.toFixed(2)}</div>
+                  <div className="text-xs text-foreground/60">Spent last quarter</div>
                 </div>
               </div>
               <div className="grid grid-cols-1 gap-4 text-center sm:grid-cols-3">
                 <div>
-                  <div className="text-lg font-semibold text-slate-900 dark:text-white">${gasStats.forecastWeek.toFixed(2)}</div>
-                  <div className="text-xs text-muted-foreground">Forecast next week</div>
+                  <div className="text-lg font-semibold text-foreground">${gasStats.forecastWeek.toFixed(2)}</div>
+                  <div className="text-xs text-foreground/60">Forecast next week</div>
                 </div>
                 <div>
-                  <div className="text-lg font-semibold text-slate-900 dark:text-white">${gasStats.forecastMonth.toFixed(2)}</div>
-                  <div className="text-xs text-muted-foreground">Forecast next month</div>
+                  <div className="text-lg font-semibold text-foreground">${gasStats.forecastMonth.toFixed(2)}</div>
+                  <div className="text-xs text-foreground/60">Forecast next month</div>
                 </div>
                 <div>
-                  <div className="text-lg font-semibold text-slate-900 dark:text-white">${gasStats.forecastQuarter.toFixed(2)}</div>
-                  <div className="text-xs text-muted-foreground">Forecast next quarter</div>
+                  <div className="text-lg font-semibold text-foreground">${gasStats.forecastQuarter.toFixed(2)}</div>
+                  <div className="text-xs text-foreground/60">Forecast next quarter</div>
                 </div>
               </div>
               <div className="h-40">
                 {gasPriceTrend.length > 0 ? (
                   <ResponsiveContainer width="100%" height="100%">
                     <LineChart data={gasPriceTrend} margin={{ top: 10, right: 20, bottom: 0, left: 0 }}>
-                      <XAxis dataKey="label" minTickGap={16} />
+                      <XAxis dataKey="label" minTickGap={16} stroke="rgba(148,163,184,0.6)" tick={{ fill: '#cbd5f5' }} />
                       <YAxis
                         width={40}
                         domain={["dataMin", "dataMax"]}
                         tickFormatter={(value) => `$${(value as number).toFixed(2)}`}
+                        stroke="rgba(148,163,184,0.6)"
+                        tick={{ fill: '#cbd5f5' }}
                       />
+                      <CartesianGrid strokeDasharray="3 3" stroke="rgba(148,163,184,0.2)" />
                       <Tooltip
                         formatter={(value: number | string) => [`$${Number(value).toFixed(2)}`, 'Price']}
                         labelFormatter={(label) => `Recorded ${label}`}
                       />
-                      <Line type="monotone" dataKey="price" stroke="#2563eb" strokeWidth={2} dot={false} />
+                      <Line type="monotone" dataKey="price" stroke="#60a5fa" strokeWidth={2} dot={false} />
                     </LineChart>
                   </ResponsiveContainer>
                 ) : (
-                  <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
+                  <div className="flex h-full items-center justify-center text-sm text-foreground/60">
                     No gas price data for the past month.
                   </div>
                 )}
@@ -1613,9 +1620,9 @@ export default function MilesTracker() {
               <div className="h-56">
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={gasChartData}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="label" />
-                    <YAxis />
+                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(148,163,184,0.2)" />
+                    <XAxis dataKey="label" stroke="rgba(148,163,184,0.6)" tick={{ fill: '#cbd5f5' }} />
+                    <YAxis stroke="rgba(148,163,184,0.6)" tick={{ fill: '#cbd5f5' }} />
                     <Tooltip formatter={(value: number) => [`$${(value as number).toFixed(2)}`, '']} />
                     <Legend />
                     <Bar dataKey="spent" fill="#8884d8" name="Spent" />
@@ -1626,21 +1633,21 @@ export default function MilesTracker() {
             </CardContent>
           </Card>
 
-          <Card className="border-none bg-white/80 backdrop-blur-lg dark:bg-slate-900/60">
+          <Card className="elev-2 shadow-ambient">
             <CardHeader>
-              <CardTitle className="text-base font-semibold text-slate-900 dark:text-white">Quick notes</CardTitle>
-              <CardDescription>Keep an eye on spend and balance at a glance.</CardDescription>
+              <CardTitle className="text-base font-semibold text-foreground">Quick notes</CardTitle>
+              <CardDescription className="text-foreground/60">Keep an eye on spend and balance at a glance.</CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4 text-sm text-muted-foreground">
-              <div className="rounded-2xl border border-slate-200/70 p-4 dark:border-slate-700/60">
-                <div className="text-xs uppercase tracking-wide text-muted-foreground">Allowance balance</div>
+            <CardContent className="space-y-4 text-sm text-foreground/70">
+              <div className="rounded-[calc(var(--radius)*0.9)] bg-secondary/60 p-4">
+                <div className="text-xs uppercase tracking-wide text-foreground/60">Allowance balance</div>
                 <div className={`mt-1 text-lg font-semibold ${availableColor}`}>
                   {formatMiles(availableMiles)} mi remaining
                 </div>
               </div>
-              <div className="rounded-2xl border border-slate-200/70 p-4 dark:border-slate-700/60">
-                <div className="text-xs uppercase tracking-wide text-muted-foreground">Planned trips</div>
-                <div className="mt-1 text-lg font-semibold text-slate-900 dark:text-white">
+              <div className="rounded-[calc(var(--radius)*0.9)] bg-secondary/60 p-4">
+                <div className="text-xs uppercase tracking-wide text-foreground/60">Planned trips</div>
+                <div className="mt-1 text-lg font-semibold text-foreground">
                   {futureTripEvents.length} scheduled
                 </div>
               </div>

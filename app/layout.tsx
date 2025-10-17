@@ -13,7 +13,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang="en" className="dark" suppressHydrationWarning>
       <head>
         {/*
           Theme initialization script ensures correct theme on first paint without flicker.
@@ -25,8 +25,7 @@ export default function RootLayout({
             __html: `
               try {
                 const userPref = localStorage.getItem('theme');
-                const systemPrefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-                const shouldUseDark = userPref ? (userPref === 'dark') : systemPrefersDark;
+                const shouldUseDark = userPref ? (userPref === 'dark') : true;
                 document.documentElement.classList.toggle('dark', shouldUseDark);
               } catch (_e) { /* noop */ }
             `,

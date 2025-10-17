@@ -10,14 +10,14 @@ import { Button } from "./ui/button";
  * - Uses simple emoji icons for zero-dependency clarity.
  */
 export default function ThemeToggle() {
-  const [isDark, setIsDark] = React.useState<boolean>(false);
+  const [isDark, setIsDark] = React.useState<boolean>(true);
 
   React.useEffect(() => {
     try {
       const userPref = localStorage.getItem("theme");
-      const systemPrefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
-      const initial = userPref ? userPref === "dark" : systemPrefersDark;
+      const initial = userPref ? userPref === "dark" : true;
       setIsDark(initial);
+      document.documentElement.classList.toggle("dark", initial);
     } catch {
       // ignore localStorage access errors
     }
@@ -41,7 +41,8 @@ export default function ThemeToggle() {
       title={isDark ? "Switch to light mode" : "Switch to dark mode"}
       onClick={toggleTheme}
       variant="ghost"
-      className="glow-blue"
+      className="rounded-full px-3"
+      aria-pressed={isDark}
     >
       <span className="text-lg" role="img" aria-hidden>
         {isDark ? "🌙" : "☀️"}
