@@ -95,11 +95,20 @@
 
   body {
     @apply bg-background text-foreground antialiased;
+    color-scheme: light;
     background-image:
       radial-gradient(900px 900px at 20% -10%, color-mix(in srgb, hsl(var(--brand-2)) 20%, transparent), transparent),
       radial-gradient(900px 900px at 80% 110%, color-mix(in srgb, hsl(var(--brand-2)) 8%, transparent), transparent);
     background-attachment: fixed;
     min-height: 100vh;
+  }
+
+  .dark body {
+    color-scheme: dark;
+    background-image:
+      linear-gradient(180deg, rgba(5, 10, 25, 0.88), rgba(5, 10, 25, 0.94)),
+      radial-gradient(900px 900px at 20% -10%, color-mix(in srgb, hsl(var(--brand-1)) 32%, transparent), transparent),
+      radial-gradient(900px 900px at 80% 110%, color-mix(in srgb, hsl(var(--brand-2)) 14%, transparent), transparent);
   }
 }
 
