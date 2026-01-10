@@ -22,7 +22,7 @@ export default function OdometerButton({ onAddReading }: OdometerButtonProps) {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!newReading.miles || !newReading.date) {
       alert('Please enter both date and miles');
       return;
@@ -68,12 +68,12 @@ export default function OdometerButton({ onAddReading }: OdometerButtonProps) {
       {/* Backdrop */}
       {isOpen && (
         <div
-          className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 p-4 backdrop-blur-sm sm:items-center"
+          className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 backdrop-blur-sm sm:items-center"
           onClick={handleClose}
         >
-          {/* Modal */}
+          {/* Modal - slides up from bottom on mobile, centered on desktop */}
           <div
-            className="elev-2 w-full max-w-md rounded-[calc(var(--radius)*1.2)] border border-border/40 bg-card/95 p-1 text-foreground"
+            className="elev-2 w-full max-w-md rounded-t-[calc(var(--radius)*1.5)] border border-border/40 bg-card/95 p-1 text-foreground max-h-[90vh] overflow-y-auto sm:rounded-[calc(var(--radius)*1.2)] sm:mx-4"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header */}
@@ -83,39 +83,43 @@ export default function OdometerButton({ onAddReading }: OdometerButtonProps) {
               </h2>
               <button
                 onClick={handleClose}
-                className="text-foreground/60 transition hover:text-foreground"
+                className="text-foreground/60 transition hover:text-foreground p-2 -mr-2"
               >
-                <X size={18} />
+                <X size={20} />
               </button>
             </div>
 
             {/* Form */}
-            <form onSubmit={handleSubmit} className="space-y-4 px-5 py-6">
-              <div>
-                <Label htmlFor="modal-date">Date</Label>
-                <Input
-                  id="modal-date"
-                  type="date"
-                  value={newReading.date}
-                  onChange={(e) => setNewReading(prev => ({ ...prev, date: e.target.value }))}
-                  required
-                  className="mt-1"
-                />
+            <form onSubmit={handleSubmit} className="space-y-5 px-5 py-6">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="modal-date">Date</Label>
+                  <Input
+                    id="modal-date"
+                    type="date"
+                    value={newReading.date}
+                    onChange={(e) => setNewReading(prev => ({ ...prev, date: e.target.value }))}
+                    required
+                    className="mt-1.5 h-12 text-base"
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="modal-miles">Miles</Label>
+                  <Input
+                    id="modal-miles"
+                    type="text"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
+                    value={newReading.miles}
+                    onChange={(e) => setNewReading(prev => ({ ...prev, miles: e.target.value }))}
+                    placeholder="25000"
+                    required
+                    className="mt-1.5 h-12 text-base"
+                  />
+                </div>
               </div>
-              
-              <div>
-                <Label htmlFor="modal-miles">Odometer Reading (miles)</Label>
-                <Input
-                  id="modal-miles"
-                  type="number"
-                  value={newReading.miles}
-                  onChange={(e) => setNewReading(prev => ({ ...prev, miles: e.target.value }))}
-                  placeholder="e.g. 25000"
-                  required
-                  className="mt-1"
-                />
-              </div>
-              
+
               <div>
                 <Label htmlFor="modal-notes">Notes (optional)</Label>
                 <Input
@@ -123,24 +127,24 @@ export default function OdometerButton({ onAddReading }: OdometerButtonProps) {
                   type="text"
                   value={newReading.notes}
                   onChange={(e) => setNewReading(prev => ({ ...prev, notes: e.target.value }))}
-                  placeholder="e.g. Oil change, road trip, etc."
-                  className="mt-1"
+                  placeholder="Oil change, road trip, etc."
+                  className="mt-1.5 h-12 text-base"
                 />
               </div>
-              
+
               <div className="flex flex-col gap-3 pt-2 sm:flex-row">
                 <Button
                   type="button"
                   variant="outline"
                   onClick={handleClose}
-                  className="flex-1"
+                  className="flex-1 h-12 text-base"
                   disabled={isSubmitting}
                 >
                   Cancel
                 </Button>
                 <Button
                   type="submit"
-                  className="flex-1"
+                  className="flex-1 h-12 text-base"
                   disabled={isSubmitting}
                 >
                   {isSubmitting ? 'Adding...' : 'Add Reading'}
