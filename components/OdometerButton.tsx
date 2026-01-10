@@ -132,7 +132,7 @@ export default function OdometerButton({ onAddReading }: OdometerButtonProps) {
                 />
               </div>
 
-              <div className="flex flex-col gap-3 pt-2 sm:flex-row">
+              <div className="flex gap-3 pt-2">
                 <Button
                   type="button"
                   variant="outline"
