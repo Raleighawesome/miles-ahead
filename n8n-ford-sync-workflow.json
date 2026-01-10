@@ -1,0 +1,530 @@
+{
+  "name": "Ford Sync - Miles Ahead",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "triggerAtHour": 0
+            }
+          ]
+        }
+      },
+      "id": "cron-trigger",
+      "name": "Midnight Trigger",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [0, 0]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT * FROM ford_credentials WHERE vehicle_id = 'truck' LIMIT 1",
+        "options": {}
+      },
+      "id": "get-credentials",
+      "name": "Get Ford Credentials",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [220, 0],
+      "credentials": {
+        "postgres": {
+          "id": "SUPABASE_CREDENTIAL_ID",
+          "name": "Supabase Postgres"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "token-expired",
+              "leftValue": "={{ $json.token_expires_at }}",
+              "rightValue": "={{ $now.toISO() }}",
+              "operator": {
+                "type": "dateTime",
+                "operation": "before"
+              }
+            }
+          ],
+          "combinator": "or"
+        },
+        "options": {}
+      },
+      "id": "check-token-expired",
+      "name": "Token Expired?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [440, 0]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://usapi.cv.ford.com/api/oauth2/v1/token",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Application-Id",
+              "value": "71A3AD0A-CF46-4CCF-B473-FC7FE5BC4592"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/x-www-form-urlencoded"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "form-urlencoded",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "grant_type",
+              "value": "password"
+            },
+            {
+              "name": "username",
+              "value": "={{ $credentials.fordUsername }}"
+            },
+            {
+              "name": "password",
+              "value": "={{ $credentials.fordPassword }}"
+            },
+            {
+              "name": "client_id",
+              "value": "9fb503e0-715b-47e8-adfd-ad4b7770f73b"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "ford-auth",
+      "name": "Ford Auth (Password)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [660, -100],
+      "credentials": {
+        "httpCustomAuth": {
+          "id": "FORD_CREDENTIAL_ID",
+          "name": "Ford Account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://usapi.cv.ford.com/api/oauth2/v1/token",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Application-Id",
+              "value": "71A3AD0A-CF46-4CCF-B473-FC7FE5BC4592"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/x-www-form-urlencoded"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "form-urlencoded",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "grant_type",
+              "value": "refresh_token"
+            },
+            {
+              "name": "refresh_token",
+              "value": "={{ $('Get Ford Credentials').item.json.refresh_token }}"
+            },
+            {
+              "name": "client_id",
+              "value": "9fb503e0-715b-47e8-adfd-ad4b7770f73b"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "ford-refresh",
+      "name": "Ford Auth (Refresh)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [660, 100]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE ford_credentials SET access_token = '{{ $json.access_token }}', refresh_token = '{{ $json.refresh_token }}', token_expires_at = NOW() + INTERVAL '20 minutes' WHERE vehicle_id = 'truck'",
+        "options": {}
+      },
+      "id": "save-tokens",
+      "name": "Save New Tokens",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [880, 0],
+      "credentials": {
+        "postgres": {
+          "id": "SUPABASE_CREDENTIAL_ID",
+          "name": "Supabase Postgres"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "https://usapi.cv.ford.com/api/users",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Application-Id",
+              "value": "71A3AD0A-CF46-4CCF-B473-FC7FE5BC4592"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer {{ $json.access_token }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "get-vehicles",
+      "name": "Get Ford Vehicles",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1100, 0]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Extract the first vehicle ID from Ford's response\nconst vehicles = $input.first().json.vehicles || $input.first().json;\nconst vehicleId = vehicles[0]?.vehicleId || vehicles[0]?.VIN;\n\nreturn [{ json: { fordVehicleId: vehicleId, accessToken: $('Save New Tokens').first().json.access_token || $('Ford Auth (Password)').first().json.access_token || $('Ford Auth (Refresh)').first().json.access_token } }];"
+      },
+      "id": "extract-vehicle-id",
+      "name": "Extract Vehicle ID",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1320, 0]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "=https://usapi.cv.ford.com/api/vehicles/v5/{{ $json.fordVehicleId }}/status",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Application-Id",
+              "value": "71A3AD0A-CF46-4CCF-B473-FC7FE5BC4592"
+            },
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $json.accessToken }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "get-vehicle-status",
+      "name": "Get Vehicle Status",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1540, 0]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Extract odometer and fuel from Ford's nested response\nconst status = $input.first().json.vehiclestatus || $input.first().json;\n\nconst odometer = status.odometer?.value || status.Odometer?.value || 0;\nconst fuelLevel = status.fuel?.fuelLevel || status.Fuel?.fuelLevel || null;\nconst distanceToEmpty = status.fuel?.distanceToEmpty || status.Fuel?.distanceToEmpty || null;\n\nreturn [{\n  json: {\n    odometer: Math.round(odometer),\n    fuelLevel,\n    distanceToEmpty,\n    timestamp: status.odometer?.timestamp || new Date().toISOString()\n  }\n}];"
+      },
+      "id": "extract-status",
+      "name": "Extract Status Data",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1760, 0]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT reading_miles FROM odometer_logs WHERE vehicle_id = 'truck' ORDER BY reading_date DESC LIMIT 1",
+        "options": {}
+      },
+      "id": "get-last-reading",
+      "name": "Get Last Reading",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [1980, 0],
+      "credentials": {
+        "postgres": {
+          "id": "SUPABASE_CREDENTIAL_ID",
+          "name": "Supabase Postgres"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "odometer-changed",
+              "leftValue": "={{ $('Extract Status Data').item.json.odometer }}",
+              "rightValue": "={{ $json.reading_miles || 0 }}",
+              "operator": {
+                "type": "number",
+                "operation": "gt"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "check-odometer-changed",
+      "name": "Odometer Changed?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [2200, 0]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO odometer_logs (vehicle_id, reading_date, reading_miles, note) VALUES ('truck', CURRENT_DATE, {{ $('Extract Status Data').item.json.odometer }}, 'Auto-sync from Ford')",
+        "options": {}
+      },
+      "id": "insert-reading",
+      "name": "Insert Odometer Reading",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [2420, -100],
+      "credentials": {
+        "postgres": {
+          "id": "SUPABASE_CREDENTIAL_ID",
+          "name": "Supabase Postgres"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE vehicles SET fuel_level = {{ $('Extract Status Data').item.json.fuelLevel || 'NULL' }}, distance_to_empty = {{ $('Extract Status Data').item.json.distanceToEmpty || 'NULL' }}, last_ford_sync = NOW() WHERE id = 'truck'",
+        "options": {}
+      },
+      "id": "update-vehicle",
+      "name": "Update Vehicle Fuel",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [2640, 0],
+      "credentials": {
+        "postgres": {
+          "id": "SUPABASE_CREDENTIAL_ID",
+          "name": "Supabase Postgres"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE ford_credentials SET last_sync_at = NOW(), last_sync_status = 'success', last_sync_error = NULL WHERE vehicle_id = 'truck'",
+        "options": {}
+      },
+      "id": "update-sync-status",
+      "name": "Update Sync Status",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [2860, 0],
+      "credentials": {
+        "postgres": {
+          "id": "SUPABASE_CREDENTIAL_ID",
+          "name": "Supabase Postgres"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Midnight Trigger": {
+      "main": [
+        [
+          {
+            "node": "Get Ford Credentials",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Ford Credentials": {
+      "main": [
+        [
+          {
+            "node": "Token Expired?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Token Expired?": {
+      "main": [
+        [
+          {
+            "node": "Ford Auth (Password)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Ford Auth (Refresh)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ford Auth (Password)": {
+      "main": [
+        [
+          {
+            "node": "Save New Tokens",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ford Auth (Refresh)": {
+      "main": [
+        [
+          {
+            "node": "Save New Tokens",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save New Tokens": {
+      "main": [
+        [
+          {
+            "node": "Get Ford Vehicles",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Ford Vehicles": {
+      "main": [
+        [
+          {
+            "node": "Extract Vehicle ID",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Vehicle ID": {
+      "main": [
+        [
+          {
+            "node": "Get Vehicle Status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Vehicle Status": {
+      "main": [
+        [
+          {
+            "node": "Extract Status Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Status Data": {
+      "main": [
+        [
+          {
+            "node": "Get Last Reading",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Last Reading": {
+      "main": [
+        [
+          {
+            "node": "Odometer Changed?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Odometer Changed?": {
+      "main": [
+        [
+          {
+            "node": "Insert Odometer Reading",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Update Vehicle Fuel",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Insert Odometer Reading": {
+      "main": [
+        [
+          {
+            "node": "Update Vehicle Fuel",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Vehicle Fuel": {
+      "main": [
+        [
+          {
+            "node": "Update Sync Status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": [],
+  "triggerCount": 1,
+  "pinData": {}
+}
