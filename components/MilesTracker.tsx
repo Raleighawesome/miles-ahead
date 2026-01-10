@@ -15,6 +15,7 @@ import { getSupabaseClient } from '../lib/supabase';
 import ThemeToggle from './ThemeToggle';
 import Link from 'next/link';
 import OdometerButton from './OdometerButton';
+import { ChevronDown, ChevronUp } from 'lucide-react';
 
 // Types
 interface OdometerReading {
@@ -151,6 +152,7 @@ export default function MilesTracker() {
     forecastMonth: 0,
     forecastQuarter: 0
   });
+  const [gasExpanded, setGasExpanded] = useState(false);
 
   // Initialize Supabase client
   const supabase = getSupabaseClient();
@@ -1024,58 +1026,45 @@ export default function MilesTracker() {
   return (
     <div className="relative min-h-screen">
       <div className="mx-auto flex w-full max-w-6xl flex-col gap-10 px-4 pb-20 pt-12 sm:px-6 lg:px-8">
-        <header className="flex flex-col gap-6">
-          <div className="flex flex-col gap-6 md:flex-row md:items-start md:justify-between">
-            <div className="space-y-4">
-              <span className="inline-flex w-fit items-center rounded-full bg-secondary/70 px-4 py-1 text-xs font-semibold uppercase tracking-[0.35em] text-foreground/60">
-                Miles Ahead
-              </span>
-              <div className="space-y-3">
-                <h1 className="text-3xl font-semibold leading-tight md:text-4xl">Mileage Command Center</h1>
-                <p className="max-w-xl text-sm text-foreground/70">
-                  A calm overview of your driving life—snapshot summaries, forecasts, and planning in one place.
-                </p>
-              </div>
-            </div>
-            <div className="flex w-full flex-col gap-3 rounded-[calc(var(--radius)*1.05)] bg-secondary/50 p-4 shadow-ambient backdrop-blur md:w-auto md:flex-row md:items-center md:justify-end md:bg-transparent md:p-0 md:shadow-none">
-              <Button asChild variant="outline" className="w-full md:w-auto">
+        <header className="flex flex-col gap-8">
+          {/* Top bar with branding and controls */}
+          <div className="flex items-center justify-between">
+            <span className="inline-flex items-center rounded-full bg-secondary/70 px-4 py-1.5 text-xs font-semibold uppercase tracking-[0.3em] text-foreground/60">
+              Miles Ahead
+            </span>
+            <div className="flex items-center gap-3">
+              <Button asChild variant="ghost" size="sm">
                 <Link href="/settings">Settings</Link>
               </Button>
               <ThemeToggle />
             </div>
           </div>
 
-          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-            <Card className="elev-2 space-y-2 p-5 sm:p-6">
-              <div className="text-xs font-semibold uppercase tracking-wide text-foreground/60">Current balance</div>
-              <div className={`text-3xl font-semibold ${availableColor}`}>
+          {/* Hero metric */}
+          <div className="flex flex-col items-center gap-6 py-8 text-center">
+            <span className={`inline-flex items-center rounded-full px-4 py-1.5 text-xs font-semibold ${statusTokens.chipClass}`}>
+              {statusTokens.label}
+            </span>
+            <div className="space-y-2">
+              <div className={`text-6xl font-bold tracking-tight sm:text-7xl md:text-8xl ${availableColor}`}>
                 {formatMiles(availableMiles)}
               </div>
-              <div className="text-xs text-foreground/60">vs. allowance to date</div>
-            </Card>
-            <Card className="elev-2 space-y-2 p-5 sm:p-6">
-              <div className="text-xs font-semibold uppercase tracking-wide text-foreground/60">After planned trips</div>
-              <div className={`text-3xl font-semibold ${projectedAvailableColor}`}>
-                {formatMiles(projectedAvailableMiles)}
+              <div className="text-lg text-foreground/60">
+                {availableMiles >= 0 ? 'miles credit' : 'miles over'}
               </div>
-              <div className="text-xs text-foreground/60">
-                Includes {formatMiles(futureTripMiles)} mi of scheduled driving
+            </div>
+            <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-sm text-foreground/60">
+              <span>{stats.totalMiles.toLocaleString()} driven</span>
+              <span className="hidden sm:inline">•</span>
+              <span>{Math.round(stats.allowanceToDate).toLocaleString()} allowed</span>
+              <span className="hidden sm:inline">•</span>
+              <span>{stats.blendedPace?.thirtyDayPace.toFixed(0) ?? '—'} mi/day pace</span>
+            </div>
+            {futureTripMiles > 0 && (
+              <div className="mt-2 rounded-full bg-secondary/60 px-4 py-2 text-sm text-foreground/70">
+                After {futureTripEvents.length} planned trip{futureTripEvents.length > 1 ? 's' : ''}: <span className={projectedAvailableColor}>{formatMiles(projectedAvailableMiles)}</span> miles
               </div>
-            </Card>
-            <Card className="elev-2 space-y-2 p-5 sm:p-6">
-              <div className="text-xs font-semibold uppercase tracking-wide text-foreground/60">Miles driven</div>
-              <div className="text-3xl font-semibold text-foreground">
-                {stats.totalMiles.toLocaleString()}
-              </div>
-              <div className="text-xs text-foreground/60">Allowance to date: {Math.round(stats.allowanceToDate).toLocaleString()} mi</div>
-            </Card>
-            <Card className="elev-2 space-y-2 p-5 sm:p-6">
-              <div className="text-xs font-semibold uppercase tracking-wide text-foreground/60">Today&apos;s pace</div>
-              <div className="text-3xl font-semibold text-foreground">
-                {stats.todaysMiles.toLocaleString()}
-              </div>
-              <div className="text-xs text-foreground/60">Daily allowance {Math.round(stats.dailyAllowance).toLocaleString()} mi</div>
-            </Card>
+            )}
           </div>
         </header>
 
@@ -1095,12 +1084,10 @@ export default function MilesTracker() {
                 <div className="rounded-[calc(var(--radius)*1.2)] bg-card/80 p-6 backdrop-blur">
                   <div className="space-y-6">
                     {renderCenteredProgress('Current balance', currentProgress)}
-                    {renderCenteredProgress(
-                      'Planned trip outlook',
+                    {futureTripMiles > 0 && renderCenteredProgress(
+                      'After planned trips',
                       projectedProgress,
-                      futureTripMiles > 0
-                        ? `Includes ${formatMiles(futureTripMiles)} mi of planned trips`
-                        : 'No planned trips scheduled'
+                      `Includes ${formatMiles(futureTripMiles)} mi of planned trips`
                     )}
                   </div>
                 </div>
@@ -1312,113 +1299,6 @@ export default function MilesTracker() {
                   )}
                 </CardContent>
               </Card>
-
-              <Card className="elev-2 shadow-ambient">
-                <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                  <CardTitle className="text-base font-semibold text-foreground">Weekly mileage trend</CardTitle>
-                  {weeklyTrend.length > 0 && (
-                    <div className="flex flex-wrap items-center gap-2">
-                      <div className="text-xs text-foreground/60 sm:text-sm">
-                        Page {Math.min(weekPage + 1, Math.max(totalWeeklyPages, 1))} of {Math.max(totalWeeklyPages, 1)}
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => setWeekPage(prev => Math.min(prev + 1, Math.max(totalWeeklyPages - 1, 0)))}
-                          disabled={!canGoToPreviousWeeks}
-                        >
-                          Previous 4 Weeks
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => setWeekPage(prev => Math.max(prev - 1, 0))}
-                          disabled={!canGoToNextWeeks}
-                        >
-                          Next 4 Weeks
-                        </Button>
-                      </div>
-                    </div>
-                  )}
-                </CardHeader>
-                <CardContent>
-                  {visibleWeeklyData.length > 0 ? (
-                    <div className="h-80">
-                      <ResponsiveContainer width="100%" height="100%">
-                        <LineChart data={visibleWeeklyData}>
-                          <CartesianGrid strokeDasharray="3 3" stroke="rgba(148,163,184,0.2)" />
-                          <XAxis dataKey="label" stroke="rgba(148,163,184,0.6)" tick={{ fill: '#cbd5f5' }} />
-                          <YAxis stroke="rgba(148,163,184,0.6)" tick={{ fill: '#cbd5f5' }} />
-                          <Tooltip
-                            formatter={(value: number, _name: string, info?: Payload<number, string>) => [
-                              `${Math.round(value).toLocaleString()} miles`,
-                              info?.dataKey === 'allowance' ? 'Weekly Allowance' : 'Actual Miles'
-                            ]}
-                          />
-                          <Legend />
-                          <Line
-                            type="monotone"
-                            dataKey="miles"
-                            stroke="#34d399"
-                            strokeWidth={2}
-                            dot
-                            name="Actual Miles"
-                          />
-                          <Line
-                            type="monotone"
-                            dataKey="allowance"
-                            stroke="#fb923c"
-                            strokeWidth={2}
-                            strokeDasharray="5 5"
-                            dot={false}
-                            name="Weekly Allowance"
-                          />
-                        </LineChart>
-                      </ResponsiveContainer>
-                    </div>
-                  ) : (
-                    <div className="flex h-80 items-center justify-center text-sm text-foreground/60">
-                      Not enough mileage data to calculate week-over-week trends.
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-
-              <Card className="elev-2 shadow-ambient">
-                <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                  <CardTitle className="text-base font-semibold text-foreground">Projected weekly mileage</CardTitle>
-                  <div className="text-xs text-foreground/60 sm:text-sm">
-                    Projection for the next 4 weeks using the most recent 4 weeks of mileage data.
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  {weeklyProjectionData.length > 0 ? (
-                    <div className="h-80">
-                      <ResponsiveContainer width="100%" height="100%">
-                        <LineChart data={weeklyProjectionData}>
-                          <CartesianGrid strokeDasharray="3 3" stroke="rgba(148,163,184,0.2)" />
-                          <XAxis dataKey="label" stroke="rgba(148,163,184,0.6)" tick={{ fill: '#cbd5f5' }} interval={0} angle={-20} textAnchor="end" height={80} />
-                          <YAxis stroke="rgba(148,163,184,0.6)" tick={{ fill: '#cbd5f5' }} />
-                          <Tooltip
-                            formatter={(value: ValueType) => {
-                              if (typeof value !== 'number') {
-                                return value;
-                              }
-                              return [`${Math.round(value).toLocaleString()} miles`, 'Projected pace'];
-                            }}
-                          />
-                          <Line type="monotone" dataKey="projected" stroke="#818cf8" strokeWidth={2} dot />
-                        </LineChart>
-                      </ResponsiveContainer>
-                    </div>
-                  ) : (
-                    <div className="flex h-80 items-center justify-center text-sm text-foreground/60">
-                      Add a few weeks of readings to unlock projections.
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
             </TabsContent>
 
             <TabsContent value="trips">
@@ -1544,115 +1424,85 @@ export default function MilesTracker() {
           </Tabs>
         </section>
 
-        <section className="grid gap-6 lg:grid-cols-[1.2fr,1fr]">
-          <Card className="elev-2 shadow-ambient">
-            <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <CardTitle className="text-base font-semibold text-foreground">Gas costs</CardTitle>
-              <div className="flex items-center gap-3">
-                <Input
-                  value={stationId}
-                  onChange={(e) => setStationId(e.target.value)}
-                  placeholder="Station ID"
-                  className="w-28"
-                />
-                {gasPrice && (
-                  <div className="text-lg font-semibold text-foreground">
-                    ${gasPrice.toFixed(2)}
+        <section>
+          <button
+            onClick={() => setGasExpanded(!gasExpanded)}
+            className="elev-1 flex w-full items-center justify-between rounded-[var(--radius)] px-5 py-4 text-left transition hover:bg-secondary/80"
+          >
+            <div className="flex items-center gap-4">
+              <span className="text-base font-semibold text-foreground">Gas costs</span>
+              {gasPrice && (
+                <span className="rounded-full bg-secondary/70 px-3 py-1 text-sm font-medium text-foreground">
+                  ${gasPrice.toFixed(2)}/gal
+                </span>
+              )}
+              <span className="text-sm text-foreground/60">
+                ${gasStats.spentMonth.toFixed(0)} last month
+              </span>
+            </div>
+            {gasExpanded ? (
+              <ChevronUp className="h-5 w-5 text-foreground/60" />
+            ) : (
+              <ChevronDown className="h-5 w-5 text-foreground/60" />
+            )}
+          </button>
+          {gasExpanded && (
+            <Card className="elev-2 mt-3 shadow-ambient">
+              <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <CardTitle className="text-base font-semibold text-foreground">Gas details</CardTitle>
+                <div className="flex items-center gap-3">
+                  <Input
+                    value={stationId}
+                    onChange={(e) => setStationId(e.target.value)}
+                    placeholder="Station ID"
+                    className="w-28"
+                  />
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <div className="grid grid-cols-2 gap-4 text-center sm:grid-cols-3">
+                  <div>
+                    <div className="text-lg font-semibold text-foreground">${gasStats.spentWeek.toFixed(2)}</div>
+                    <div className="text-xs text-foreground/60">Last week</div>
                   </div>
-                )}
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="grid grid-cols-1 gap-4 text-center sm:grid-cols-3">
-                <div>
-                  <div className="text-lg font-semibold text-foreground">${gasStats.spentWeek.toFixed(2)}</div>
-                  <div className="text-xs text-foreground/60">Spent last week</div>
-                </div>
-                <div>
-                  <div className="text-lg font-semibold text-foreground">${gasStats.spentMonth.toFixed(2)}</div>
-                  <div className="text-xs text-foreground/60">Spent last month</div>
-                </div>
-                <div>
-                  <div className="text-lg font-semibold text-foreground">${gasStats.spentQuarter.toFixed(2)}</div>
-                  <div className="text-xs text-foreground/60">Spent last quarter</div>
-                </div>
-              </div>
-              <div className="grid grid-cols-1 gap-4 text-center sm:grid-cols-3">
-                <div>
-                  <div className="text-lg font-semibold text-foreground">${gasStats.forecastWeek.toFixed(2)}</div>
-                  <div className="text-xs text-foreground/60">Forecast next week</div>
-                </div>
-                <div>
-                  <div className="text-lg font-semibold text-foreground">${gasStats.forecastMonth.toFixed(2)}</div>
-                  <div className="text-xs text-foreground/60">Forecast next month</div>
-                </div>
-                <div>
-                  <div className="text-lg font-semibold text-foreground">${gasStats.forecastQuarter.toFixed(2)}</div>
-                  <div className="text-xs text-foreground/60">Forecast next quarter</div>
-                </div>
-              </div>
-              <div className="h-40">
-                {gasPriceTrend.length > 0 ? (
-                  <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={gasPriceTrend} margin={{ top: 10, right: 20, bottom: 0, left: 0 }}>
-                      <XAxis dataKey="label" minTickGap={16} stroke="rgba(148,163,184,0.6)" tick={{ fill: '#cbd5f5' }} />
-                      <YAxis
-                        width={40}
-                        domain={["dataMin", "dataMax"]}
-                        tickFormatter={(value) => `$${(value as number).toFixed(2)}`}
-                        stroke="rgba(148,163,184,0.6)"
-                        tick={{ fill: '#cbd5f5' }}
-                      />
-                      <CartesianGrid strokeDasharray="3 3" stroke="rgba(148,163,184,0.2)" />
-                      <Tooltip
-                        formatter={(value: number | string) => [`$${Number(value).toFixed(2)}`, 'Price']}
-                        labelFormatter={(label) => `Recorded ${label}`}
-                      />
-                      <Line type="monotone" dataKey="price" stroke="#60a5fa" strokeWidth={2} dot={false} />
-                    </LineChart>
-                  </ResponsiveContainer>
-                ) : (
-                  <div className="flex h-full items-center justify-center text-sm text-foreground/60">
-                    No gas price data for the past month.
+                  <div>
+                    <div className="text-lg font-semibold text-foreground">${gasStats.spentMonth.toFixed(2)}</div>
+                    <div className="text-xs text-foreground/60">Last month</div>
                   </div>
-                )}
-              </div>
-              <div className="h-56">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={gasChartData}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(148,163,184,0.2)" />
-                    <XAxis dataKey="label" stroke="rgba(148,163,184,0.6)" tick={{ fill: '#cbd5f5' }} />
-                    <YAxis stroke="rgba(148,163,184,0.6)" tick={{ fill: '#cbd5f5' }} />
-                    <Tooltip formatter={(value: number) => [`$${(value as number).toFixed(2)}`, '']} />
-                    <Legend />
-                    <Bar dataKey="spent" fill="#8884d8" name="Spent" />
-                    <Bar dataKey="forecast" fill="#82ca9d" name="Forecast" />
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="elev-2 shadow-ambient">
-            <CardHeader>
-              <CardTitle className="text-base font-semibold text-foreground">Quick notes</CardTitle>
-              <CardDescription className="text-foreground/60">Keep an eye on spend and balance at a glance.</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4 text-sm text-foreground/70">
-              <div className="rounded-[calc(var(--radius)*0.9)] bg-secondary/60 p-4">
-                <div className="text-xs uppercase tracking-wide text-foreground/60">Allowance balance</div>
-                <div className={`mt-1 text-lg font-semibold ${availableColor}`}>
-                  {formatMiles(availableMiles)} mi remaining
+                  <div>
+                    <div className="text-lg font-semibold text-foreground">${gasStats.spentQuarter.toFixed(2)}</div>
+                    <div className="text-xs text-foreground/60">Last quarter</div>
+                  </div>
                 </div>
-              </div>
-              <div className="rounded-[calc(var(--radius)*0.9)] bg-secondary/60 p-4">
-                <div className="text-xs uppercase tracking-wide text-foreground/60">Planned trips</div>
-                <div className="mt-1 text-lg font-semibold text-foreground">
-                  {futureTripEvents.length} scheduled
+                <div className="h-40">
+                  {gasPriceTrend.length > 0 ? (
+                    <ResponsiveContainer width="100%" height="100%">
+                      <LineChart data={gasPriceTrend} margin={{ top: 10, right: 20, bottom: 0, left: 0 }}>
+                        <XAxis dataKey="label" minTickGap={16} stroke="rgba(148,163,184,0.6)" tick={{ fill: '#cbd5f5' }} />
+                        <YAxis
+                          width={40}
+                          domain={["dataMin", "dataMax"]}
+                          tickFormatter={(value) => `$${(value as number).toFixed(2)}`}
+                          stroke="rgba(148,163,184,0.6)"
+                          tick={{ fill: '#cbd5f5' }}
+                        />
+                        <CartesianGrid strokeDasharray="3 3" stroke="rgba(148,163,184,0.2)" />
+                        <Tooltip
+                          formatter={(value: number | string) => [`$${Number(value).toFixed(2)}`, 'Price']}
+                          labelFormatter={(label) => `Recorded ${label}`}
+                        />
+                        <Line type="monotone" dataKey="price" stroke="#60a5fa" strokeWidth={2} dot={false} />
+                      </LineChart>
+                    </ResponsiveContainer>
+                  ) : (
+                    <div className="flex h-full items-center justify-center text-sm text-foreground/60">
+                      No gas price data for the past month.
+                    </div>
+                  )}
                 </div>
-              </div>
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
+          )}
         </section>
 
         <OdometerButton onAddReading={handleOdometerButtonAdd} />
