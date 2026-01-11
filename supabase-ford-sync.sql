@@ -1,11 +1,13 @@
 -- Ford Sync Integration Schema
 -- Run this in your Supabase SQL Editor
 
--- Table to store Ford API tokens (password stored in n8n, not here)
+-- Table to store Ford API tokens and credentials
 CREATE TABLE IF NOT EXISTS ford_credentials (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   vehicle_id TEXT NOT NULL REFERENCES vehicles(id) ON DELETE CASCADE,
   ford_vehicle_id TEXT,              -- Ford's internal vehicle ID (populated after first sync)
+  ford_username TEXT,                -- FordPass account email
+  ford_password TEXT,                -- FordPass account password (consider encrypting)
   access_token TEXT,
   refresh_token TEXT,
   token_expires_at TIMESTAMPTZ,
@@ -16,6 +18,11 @@ CREATE TABLE IF NOT EXISTS ford_credentials (
   updated_at TIMESTAMPTZ DEFAULT now(),
   UNIQUE(vehicle_id)
 );
+
+-- Migration: Add username/password columns if table already exists
+ALTER TABLE ford_credentials
+  ADD COLUMN IF NOT EXISTS ford_username TEXT,
+  ADD COLUMN IF NOT EXISTS ford_password TEXT;
 
 -- Add fuel tracking columns to vehicles table
 ALTER TABLE vehicles

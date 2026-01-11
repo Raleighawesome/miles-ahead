@@ -1,0 +1,17 @@
+{
+  "name": "miles-ahead-ford-scraper",
+  "version": "1.0.0",
+  "description": "Ford vehicle data scraper for Miles Ahead",
+  "main": "ford-scraper.js",
+  "scripts": {
+    "scrape": "node ford-scraper.js",
+    "server": "node ford-scraper-server.js",
+    "start": "node ford-scraper-server.js"
+  },
+  "dependencies": {
+    "playwright": "^1.40.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

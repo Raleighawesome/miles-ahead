@@ -1,0 +1,316 @@
+{
+  "name": "Ford Scraper - Miles Ahead",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "triggerAtHour": 6
+            },
+            {
+              "triggerAtHour": 18
+            }
+          ]
+        }
+      },
+      "id": "cron-trigger",
+      "name": "Morning & Evening Trigger",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [0, 0]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "http://localhost:3001/scrape",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer {{ $env.FORD_SCRAPER_API_KEY }}"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 120000
+        }
+      },
+      "id": "scrape-ford",
+      "name": "Scrape Ford Data",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [220, 0]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "scrape-success",
+              "leftValue": "={{ $json.success }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "check-success",
+      "name": "Scrape Successful?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [440, 0]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT reading_miles FROM odometer_logs WHERE vehicle_id = 'truck' ORDER BY reading_date DESC LIMIT 1",
+        "options": {}
+      },
+      "id": "get-last-reading",
+      "name": "Get Last Reading",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [660, -100],
+      "credentials": {
+        "postgres": {
+          "id": "SUPABASE_CREDENTIAL_ID",
+          "name": "Supabase Postgres"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Extract data from scraper response\nconst scrapeData = $('Scrape Ford Data').first().json;\nconst lastReading = $input.first().json;\n\nconst mileage = scrapeData.data?.mileage || 0;\nconst fuelLevel = scrapeData.data?.fuelLevel || null;\nconst oilLife = scrapeData.data?.oilLife || null;\nconst lastMiles = lastReading?.reading_miles || 0;\n\nconst shouldInsert = mileage > lastMiles;\n\nreturn [{\n  json: {\n    mileage,\n    fuelLevel,\n    oilLife,\n    lastMiles,\n    shouldInsert,\n    scrapedAt: scrapeData.data?.scrapedAt\n  }\n}];"
+      },
+      "id": "process-data",
+      "name": "Process Scraped Data",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [880, -100]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "mileage-changed",
+              "leftValue": "={{ $json.shouldInsert }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "check-mileage-changed",
+      "name": "Mileage Changed?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [1100, -100]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO odometer_logs (vehicle_id, reading_date, reading_miles, note) VALUES ('truck', CURRENT_DATE, {{ $json.mileage }}, 'Auto-sync from Ford (scraped)')",
+        "options": {}
+      },
+      "id": "insert-reading",
+      "name": "Insert Odometer Reading",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [1320, -200],
+      "credentials": {
+        "postgres": {
+          "id": "SUPABASE_CREDENTIAL_ID",
+          "name": "Supabase Postgres"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE vehicles SET fuel_level = {{ $('Process Scraped Data').item.json.fuelLevel || 'NULL' }}, distance_to_empty = {{ $('Process Scraped Data').item.json.fuelLevel || 'NULL' }}, last_ford_sync = NOW() WHERE id = 'truck'",
+        "options": {}
+      },
+      "id": "update-vehicle",
+      "name": "Update Vehicle Fuel",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [1540, -100],
+      "credentials": {
+        "postgres": {
+          "id": "SUPABASE_CREDENTIAL_ID",
+          "name": "Supabase Postgres"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE ford_credentials SET last_sync_at = NOW(), last_sync_status = 'success', last_sync_error = NULL WHERE vehicle_id = 'truck'",
+        "options": {}
+      },
+      "id": "update-sync-status-success",
+      "name": "Update Sync Status (Success)",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [1760, -100],
+      "credentials": {
+        "postgres": {
+          "id": "SUPABASE_CREDENTIAL_ID",
+          "name": "Supabase Postgres"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE ford_credentials SET last_sync_at = NOW(), last_sync_status = 'error', last_sync_error = 'Scrape failed: {{ $('Scrape Ford Data').item.json.error }}' WHERE vehicle_id = 'truck'",
+        "options": {}
+      },
+      "id": "update-sync-status-error",
+      "name": "Update Sync Status (Error)",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [660, 100],
+      "credentials": {
+        "postgres": {
+          "id": "SUPABASE_CREDENTIAL_ID",
+          "name": "Supabase Postgres"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Morning & Evening Trigger": {
+      "main": [
+        [
+          {
+            "node": "Scrape Ford Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Scrape Ford Data": {
+      "main": [
+        [
+          {
+            "node": "Scrape Successful?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Scrape Successful?": {
+      "main": [
+        [
+          {
+            "node": "Get Last Reading",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Update Sync Status (Error)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Last Reading": {
+      "main": [
+        [
+          {
+            "node": "Process Scraped Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Process Scraped Data": {
+      "main": [
+        [
+          {
+            "node": "Mileage Changed?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mileage Changed?": {
+      "main": [
+        [
+          {
+            "node": "Insert Odometer Reading",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Update Vehicle Fuel",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Insert Odometer Reading": {
+      "main": [
+        [
+          {
+            "node": "Update Vehicle Fuel",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Vehicle Fuel": {
+      "main": [
+        [
+          {
+            "node": "Update Sync Status (Success)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": [],
+  "triggerCount": 1,
+  "pinData": {}
+}

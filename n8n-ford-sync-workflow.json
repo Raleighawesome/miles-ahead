@@ -91,11 +91,11 @@
             },
             {
               "name": "username",
-              "value": "={{ $credentials.fordUsername }}"
+              "value": "={{ $('Get Ford Credentials').item.json.ford_username }}"
             },
             {
               "name": "password",
-              "value": "={{ $credentials.fordPassword }}"
+              "value": "={{ $('Get Ford Credentials').item.json.ford_password }}"
             },
             {
               "name": "client_id",
@@ -109,13 +109,7 @@
       "name": "Ford Auth (Password)",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [660, -100],
-      "credentials": {
-        "httpCustomAuth": {
-          "id": "FORD_CREDENTIAL_ID",
-          "name": "Ford Account"
-        }
-      }
+      "position": [660, -100]
     },
     {
       "parameters": {
